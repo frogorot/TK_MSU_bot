@@ -16,9 +16,21 @@ from telegram.ext import (
 
 
 import bot
-
+import core_funcs as cf
 
 def main() -> None:
+    """ Configure bot."""
+    run_file = "run.ini"
+    run_pars = cf.Parser()
+    run_pars.load_toml(run_file)
+
+    sucere_pars = cf.Parser()
+    sucere_pars.load_toml(run_pars.at('secure_file'))
+    #info_pars = cf.Parser()
+    #info_pars.load_toml(run_pars.at('info_file'))
+
+    API_TOKEN =  sucere_pars.at('Token')
+
     """Run the bot."""
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(API_TOKEN).build()

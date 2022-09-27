@@ -2,27 +2,31 @@ import time
 import random
 import toml
 import pandas as pd
+import pathlib 
 
-SECURE_DIRECTORY_NAME = "seqre_info\\"
-INFO_DIRECTORY_NAME = "load_info\\" 
-SHEETS_DIRECTORY_NAME = "sheets\\" 
-SHEET_EXTENTION = ".xlsx"
+#SECURE_DIRECTORY_NAME = 'secure_info'
+#INFO_DIRECTORY_NAME = 'load_info'
+#SHEETS_DIRECTORY_NAME = 'sheets'
+SHEET_EXTENTION = '.xlsx'
 
-#def parser:
-#    parsed_toml = None
-#    def load_toml(atribute: str, ini_file: str):
-#        """Returns value of "atribute"from "ini_file".
-#        "ini_file" should be a string."""
-#        parsed_toml = toml.loads(ini_file)
-#        toml.dumps(parsed_toml)
-#
-#     def pars_toml(atribute: str):
-#        """Returns value of "atribute"from "ini_file".
-#        "ini_file" should be a string."""
-#        if parsed_toml != None and atribute in parsed_toml.keys():
-#            return parsed_toml[atribute]
-#        else: 
-#            return None
+class Parser:
+    def __init__(self):
+        self.parsed_toml = None
+
+    def load_toml(self, ini_file: str):
+        """ ini_file shoud be a full name"""
+        #path = pathlib.Path(ini_file)
+        #str_path = str(path)
+        print(ini_file)
+
+        self.parsed_toml = toml.load(ini_file)
+
+    def at(self, atribute: str):
+       """Returns value of "atribute" from "ini_file"."""
+       if self.parsed_toml != None and atribute in self.parsed_toml.keys():
+           return self.parsed_toml[atribute]
+       else: 
+           return None
 
 
 class Slot:
@@ -162,24 +166,24 @@ class Judges:
 
     def write_aut_info(self):
         #self.filename_aut = self.filename_aut 
-        with open(SECURE_DIRECTORY_NAME + self.filename_aut + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION, 'W') as file:
+        with open(self.filename_aut + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION, 'W') as file:
             for line in self.judge_autentification:
                 string = line + ' | ' + self.judge_autentification[line] + "\n"
                 file.write(string)
 
     def write_judge_list(self):
         #self.filename_list = self.filename_list 
-        self.judge_dict.to_excel(INFO_DIRECTORY_NAME + self.filename_list + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+        self.judge_dict.to_excel(self.filename_list + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
 
     # Можно сделать сканер директории и автоматически загружать последний по времени файл.
     def load_aut_info(self, filename: str = None): #filename без .xlsx
         if filename != None:
-            self.filename_aut = filename + SHEET_EXTENTION
+            self.filename_aut = filename
         else:
             if self.filename_aut == None:
                 raise Exseption("Judges::load_aut_info: empty file name and empty self.filename_aut. I can't contine load")
             
-        with open(SECURE_DIRECTORY_NAME + self.filename_aut, 'r') as file:
+        with open(self.filename_aut + SHEET_EXTENTION, 'r') as file:
             for line in file:
                 namesize = line.find(' | ')
                 judgename = line[0 : namesize]
@@ -229,7 +233,7 @@ class Users:
         self.user_dict.set_index('Tg_id')
 
     def write_users(self):
-        self.user_dict.to_excel(INFO_DIRECTORY_NAME + self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+        self.user_dict.to_excel(self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
 
     def load_users(self, filename: str = None):
          if filename != None:
@@ -238,7 +242,7 @@ class Users:
             if self.filename == None:
                 raise Exseption("Users::load_users: empty file name and empty self.filename. I can't contine load")
         
-         self.user_dict = pd.read_excel(INFO_DIRECTORY_NAME + self.filename + SHEET_EXTENTION)
+         self.user_dict = pd.read_excel(self.filename + SHEET_EXTENTION)
          self.user_dict.set_index('Tg_id')
          if not set(list_of_params).issubset(self.user_dict.columns):
             self.user_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
@@ -259,7 +263,7 @@ class Teams:
         self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
     def write_teams(self):
-        self.team_dict.to_excel(INFO_DIRECTORY_NAME + self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+        self.team_dict.to_excel(self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
 
     def load_users(self, filename: str = None):
          if filename != None:
@@ -268,7 +272,7 @@ class Teams:
             if self.filename == None:
                 raise Exseption("Users::load_users: empty file name and empty self.filename. I can't contine load")
         
-         self.team_dict = pd.read_excel(INFO_DIRECTORY_NAME + self.filename + SHEET_EXTENTION)
+         self.team_dict = pd.read_excel(self.filename + SHEET_EXTENTION)
          self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
          if not set(list_of_params).issubset(self.team_dict.columns):
@@ -341,11 +345,12 @@ dist_dict = {}
 dist_print_pattern = []
 
 def print_my_class(tt):
-    cur_time = time.localtime(time.time())
-    name = str()
-    if hasattr(tt, 'name'):
-        name= 'sheets\\' + type(tt).__name__ + tt.name + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".xlsx"
-    else:
-        name= 'sheets\\' + type(tt).__name__ + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".xlsx"
-    df = tt.to_dafaframe()
-    df.to_excel(excel_writer = "sheets\ " + type(tt) + time.ctime(time.time()) + ".xlsx")
+    if hasattr(tt, 'to_dafaframe'):
+        cur_time = time.localtime(time.time())
+        name = str()
+        if hasattr(tt, 'name'):
+            name= 'sheets\\' + type(tt).__name__ + tt.name + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".xlsx"
+        else:
+            name= 'sheets\\' + type(tt).__name__ + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".xlsx"
+        df = tt.to_dafaframe()
+        df.to_excel(excel_writer = "sheets\ " + type(tt) + time.ctime(time.time()) + ".xlsx")
