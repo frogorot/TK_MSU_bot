@@ -1,6 +1,12 @@
 import time
-#import toml
+import random
+import toml
 import pandas as pd
+
+SECURE_DIRECTORY_NAME = "seqre_info\\"
+INFO_DIRECTORY_NAME = "load_info\\" 
+SHEETS_DIRECTORY_NAME = "sheets\\" 
+SHEET_EXTENTION = ".xlsx"
 
 #def parser:
 #    parsed_toml = None
@@ -127,44 +133,188 @@ class TimeTable:
 
         return moving_slots
 
-class Judge:
+class Judges:
     MAJOR, LINEAR = range(2)
+    def __init__(self):
+        list_of_params = ['Tg_id', 
+                          'Autentificated', 
+                          'Name', 
+                          'Status', 
+                          'Distances', 
+                          'Stages']
+        self.filename_list = None
+        self.filename_aut = None
+        self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
+        self.judge_dict.set_index('Tg_id')
+        self.judge_autentification = {} # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
+        #aut_time_delay = [0, 10, 20] # в каждом окне по 3 попытки
+    
+    def new_judge(self, tg_id, name: str, dist, stage) -> (bool, str):
+        #if not tg_id in self.judge_dict.index:
+            #new_line = pd.DataFrame({'Tg_id': [tg_id],'Autentificated':[False], 'Name' : [name],'Status' : [LINEAR], 'Distances' : [dist], 'Stages' : [stage] })
+            #self.judge_dict = pd.concat([self.judge_dict, new_line], ignore_index = True)
+        self.judge_dict[tg_id] = [ False, name, LINEAR, dist, stage]
+
+        self.judge_autentification[tg_id] = random.randint(10000, 99999)
+        write_aut_info(self);
+        write_judge_list(self);
+        return (True, self.judge_autentification[tg_id])
+
+    def write_aut_info(self):
+        #self.filename_aut = self.filename_aut 
+        with open(SECURE_DIRECTORY_NAME + self.filename_aut + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION, 'W') as file:
+            for line in self.judge_autentification:
+                string = line + ' | ' + self.judge_autentification[line] + "\n"
+                file.write(string)
+
+    def write_judge_list(self):
+        #self.filename_list = self.filename_list 
+        self.judge_dict.to_excel(INFO_DIRECTORY_NAME + self.filename_list + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+
+    # Можно сделать сканер директории и автоматически загружать последний по времени файл.
+    def load_aut_info(self, filename: str = None): #filename без .xlsx
+        if filename != None:
+            self.filename_aut = filename + SHEET_EXTENTION
+        else:
+            if self.filename_aut == None:
+                raise Exseption("Judges::load_aut_info: empty file name and empty self.filename_aut. I can't contine load")
+            
+        with open(SECURE_DIRECTORY_NAME + self.filename_aut, 'r') as file:
+            for line in file:
+                namesize = line.find(' | ')
+                judgename = line[0 : namesize]
+                judgepassword = line[namesize + 3 : ]
+                self.judge_autentification[judgename] = (judgepassword, False, 0, 0) # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
+    # Можно сделать сканер директории и автоматически загружать последний по времени файл.
+    def load_judge_list(self, filename: str):
+        if filename != None:
+            self.filename_list = filename
+        else:
+            if self.filename_list == None:
+                raise Exseption("Judges::load_judge_list: empty file name and empty self.filename_list. I can't contine load")
         
-    def __init__(self, tg_id):
-        self.tg_id = tg_id # realy is a chat_id
-        self.name = None # Фио
-        self.status = LINEAR
-        self.diastances = [] 
-        self.stage = [] # Этапы дистанций
-judge_dict = {}
+        self.judge_dict = pd.read_excel(INFO_DIRECTORY_NAME + self.filename_list + SHEET_EXTENTION)
+        self.judge_dict.set_index('Tg_id')
 
-class User:
-    def __init__(self, tg_id):
-        self.tg_id = tg_id # realy is a chat_id
-        self.name = None # Фио
-        self.age = None 
-        self.sex = None
-        self.university = None
-        self.facility = None
-        self.diastances = []
-user_dict = {}
+        if not set(list_of_params).issubset(self.judge_dict.columns):
+            self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
+            self.judge_dict.set_index('Tg_id')
+            raise Exsepton("Judges::load_judge_list: Wrong data in filename=" + filename + ". There is no Judges::list_of_params.")
 
-class Team:
+    def try_to_autentificate_judge(judge_name, judge_password: str) -> bool:
+        if judge_name in self.judge_autentification.keys():
+            if self.judge_autentification[judge_name] == judge_password:
+                user_info = self.judge_autentification[judge_name]
+                self.judge_autentification[judge_name] = (user_info[0], True, user_info[2], time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
+                return True
+            else:
+                user_info = self.judge_autentification[judge_name]
+                self.judge_autentification[judge_name] = (user_info[0], user_info[1], user_info[2] + 1, time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
+                return False
+        else:
+            return False
+
+class Users:
+    MALE, FEMALE = range(2)
+    def __init__(self):
+        list_of_params = ['Tg_id', 
+                          'Name', 
+                          'Age', 
+                          'Sex', 
+                          'University', 
+                          'Facility', 
+                          'Distances']
+        self.filename = None
+        self.user_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
+        self.user_dict.set_index('Tg_id')
+
+    def write_users(self):
+        self.user_dict.to_excel(INFO_DIRECTORY_NAME + self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+
+    def load_users(self, filename: str = None):
+         if filename != None:
+            self.filename = filename
+         else:
+            if self.filename == None:
+                raise Exseption("Users::load_users: empty file name and empty self.filename. I can't contine load")
+        
+         self.user_dict = pd.read_excel(INFO_DIRECTORY_NAME + self.filename + SHEET_EXTENTION)
+         self.user_dict.set_index('Tg_id')
+         if not set(list_of_params).issubset(self.user_dict.columns):
+            self.user_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
+            self.user_dict.set_index('Tg_id')
+            raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
+
+class Teams:
     def __init__(self, major_id):
-        self.tg_id_major = major_id #tg_id регистрирующего команду
-        self.name = None
-        self.distance = None
-        self.slot_num = None
-        self.member_id = []
-        self.member_id.append(major_id)
-    def __init__(self, user: User, distance): # команда на личную дистанцию
-        self.tg_id_major = user.tg_id 
-        self.name = user.name
-        self.distance = distance
-        self.slot_num = None
-        self.member_id = []
-        self.member_id.append(user.tg_id)
-team_dict = {}
+        list_of_params = ['Tg_id_major', 
+                          'Name', 
+                          'Distance', 
+                          'Slot_num', 
+                          'Member_id', 
+                          'Facility', 
+                          'Distances']
+        self.filename = None
+        self.team_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
+        self.team_dict.set_index(['Tg_id_major', 'Distance'])
+
+    def write_teams(self):
+        self.team_dict.to_excel(INFO_DIRECTORY_NAME + self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+
+    def load_users(self, filename: str = None):
+         if filename != None:
+            self.filename = filename
+         else:
+            if self.filename == None:
+                raise Exseption("Users::load_users: empty file name and empty self.filename. I can't contine load")
+        
+         self.team_dict = pd.read_excel(INFO_DIRECTORY_NAME + self.filename + SHEET_EXTENTION)
+         self.team_dict.set_index(['Tg_id_major', 'Distance'])
+
+         if not set(list_of_params).issubset(self.team_dict.columns):
+            self.team_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
+            self.team_dict.set_index(['Tg_id_major', 'Distance'])
+            raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
+
+#class Judge:
+#    MAJOR, LINEAR = range(2)
+#        
+#    def __init__(self, tg_id):
+#        self.tg_id = tg_id # realy is a chat_id
+#        self.name = None # Фио
+#        self.status = LINEAR
+#        self.diastances = [] 
+#        self.stage = [] # Этапы дистанций
+#
+#
+#class User:
+#    def __init__(self, tg_id):
+#        self.tg_id = tg_id # realy is a chat_id
+#        self.name = None # Фио
+#        self.age = None 
+#        self.sex = None
+#        self.university = None
+#        self.facility = None
+#        self.diastances = []
+#user_dict = {}
+#
+#class Team:
+#    def __init__(self, major_id):
+#        self.tg_id_major = major_id #tg_id регистрирующего команду
+#        self.name = None
+#        self.distance = None
+#        self.slot_num = None
+#        self.member_id = []
+#        self.member_id.append(major_id)
+#    def __init__(self, user: User, distance): # команда на личную дистанцию
+#        self.tg_id_major = user.tg_id 
+#        self.name = user.name
+#        self.distance = distance
+#        self.slot_num = None
+#        self.member_id = []
+#        self.member_id.append(user.tg_id)
+#team_dict = {}
+
 
 class DistanceResults:
     def __init__(self, name):
