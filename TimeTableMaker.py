@@ -1,6 +1,4 @@
 
-API_TOKEN = '5615991972:AAHwkxWJZKqInBC3H15Gvq0JyZYcIRvnHeI'
-
 admin_chat_id = {}
 
 #from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
@@ -12,8 +10,6 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-
-
 
 import bot
 import core_funcs as cf
