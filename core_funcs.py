@@ -8,7 +8,8 @@ import pathlib
 #INFO_DIRECTORY_NAME = 'load_info'
 #SHEETS_DIRECTORY_NAME = 'sheets'
 SHEET_EXTENTION = '.xlsx'
-
+# идеи
+# slot - это строка(пустая или непустая) в стартовом протоколе
 class Parser:
     def __init__(self):
         self.parsed_toml = None
@@ -37,20 +38,22 @@ class Slot:
         self.is_free = is_free
         
 class TimeTable:
+    # open_time - время открытия дистанции, close_time - время закрытия дистанции
+    def __init__(self, distance: str, open_time: time, close_time: time, interval: time):
+        self.name = distance
+        self.open_time = open_time
+        self.close_time = close_time
+        self.interval = interval
+        self.table = [ Slot(from_start_time_to_num_default(slot_time), slot_time, interval, True)  for slot_time in gene_table(open_time, close_time, interval) ] # пустой стартовый протокол 
+        
     def gene_table(open_time, close_time, interval):
         i = open_time
         while i <= (close_time - interval):
             yield i
             i += interval
 
-    def from_start_time_to_num_default(current_start_time):
+    def from_start_time_to_num_default(current_start_time): #конверитирует время старта слота в его номер
         return (current_start_time - self.open_time) / self.interval;
-    def __init__(self, distance: str, open_time: time, close_time: time, interval: time):
-        self.name = distance
-        self.open_time = open_time
-        self.close_time = close_time
-        self.interval = interval
-        self.table = [ Slot(from_start_time_to_num_default(slot_time), slot_time, interval, True)  for slot_time in gene_table(open_time, close_time, interval) ]
         #self.bounds_of_free = {self.table[0].start : self.table[0]} #< Список "границ" свободных в непрервном отрезке свободных: ++--+-+++ - здесь должны быть 0, 1, 4, 6, 8. 
 
     def is_time_free(self, time_for_check) -> (bool, time): # возвращает самое раннее время старта до time
@@ -58,12 +61,12 @@ class TimeTable:
             return (False, 0)
         else:
             for slot in self.table: # Можно оптимизировать, но лень
-                if slot.is_free and slot.start <= time_for_check and time_for_check <= slot.start + slot.interval:
+                if slot.is_free and slot.start <= time_for_check and time_for_check <= slot.start + slot.interval: #
                     return (True, slot.start)
             else:
                 return (False, 0)
 
-    def book_slot(self, rand: bool) -> time:
+    def booking_slot(self, rand: bool) -> time: # резервация слота
         if rand:
             rand_pos = random.randint(0, len(self.table)-1)
             for slot_num in range(rand_pos, len(self.table)-1): # ищем первое свободное после случайного
@@ -80,7 +83,7 @@ class TimeTable:
                 else:
                     raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
         else:
-            for slot in self.table: # Можно оптимизировать, но лень
+            for slot in self.table: # Можно оптимизировать, но лень - проверяем всю табличку(а можем только свободные)
                 cur_slot = self.table[slot_num]
                 if cur_slot.is_free:
                     cur_slot.is_free = False
@@ -94,7 +97,7 @@ class TimeTable:
     def getTable(self) -> list[Slot]:
         return self.table
 
-    def to_dafaframe(self):
+    def to_dafaframe(self): # список в датафрейм
         df_table = pd.DataFrame({
             'Start_times' : [slot.start for slot_time in self.table],
             'Free_slot' : [slot.is_free for slot_time in self.table]
@@ -105,7 +108,7 @@ class TimeTable:
     def setTable(self, new_table: list[Slot]):
         self.table = new_table
 
-    def TableFromDF(self, df: pd.DataFrame):
+    def TableFromDF(self, df: pd.DataFrame): # датафрейм в список
         if (not 'Start_times' in  df.columns) or (not 'Free_slot' in  df.columns):
             raise Exception('TableFromDF:: wrond df, there no some columns')
         else:
@@ -117,14 +120,14 @@ class TimeTable:
                     interval = df[df_ind + 1]['Start_times'] - df[df_ind]['Start_times']
                 self.table.append( Slot(df_ind, df[df_ind]['Start_times'], interval,  df[df_ind]['Free_slot']) )
 
-    def setSlot(self, slot_num, start_time, interval, is_free):
+    def setSlot(self, slot_num, start_time, interval, is_free): # добавляет слот с заданными параметрами в конец списка
         if slot_num > (len(self.table) - 1):
             for slot in range(len(self.table) - 1, slot_num):
                  self.table.append( Slot(slot, self.open_time + slot*self.interval, interval, True) )
 
         self.table[slot_num] = Slot(slot, start_time, interval, is_free)
 
-    def updateTable(self): 
+    def updateTable(self):
         """ Применяется после setSlot, чтобы выравнять времена старта и интервалы: если изменённый - длиннее interval, то следующий старт реально произойдёт позже.
         Возвращяет список подвинувшихся слотов."""
         expected_start = self.open_time
@@ -138,35 +141,36 @@ class TimeTable:
         return moving_slots
 
 class Judges:
-    MAJOR, LINEAR = range(2)
+    MAJOR, LINEAR = range(2) # - 'Status', 'stage' - этапы
     def __init__(self):
         list_of_params = ['Tg_id', 
-                          'Autentificated', 
+                          'Autentificated', # 'Autentificated' - факт аутентификации(trur or false(мб так, Лёха не уверен, надо смотреть код))
                           'Name', 
                           'Status', 
                           'Distances', 
-                          'Stages']
+                          'Stages'] 
         self.filename_list = None
         self.filename_aut = None
-        self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
+        self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
         self.judge_dict.set_index('Tg_id')
-        self.judge_autentification = {} # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
+        self.judge_autentification = {} # зашел ли судья с этим паролем или нет # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
         #aut_time_delay = [0, 10, 20] # в каждом окне по 3 попытки
     
+    #ниже создаем и работаем для безопасности с 2 листами: judge_dict(5) and judge_autentification(judge, password)
     def new_judge(self, tg_id, name: str, dist, stage) -> (bool, str):
         #if not tg_id in self.judge_dict.index:
             #new_line = pd.DataFrame({'Tg_id': [tg_id],'Autentificated':[False], 'Name' : [name],'Status' : [LINEAR], 'Distances' : [dist], 'Stages' : [stage] })
             #self.judge_dict = pd.concat([self.judge_dict, new_line], ignore_index = True)
         self.judge_dict[tg_id] = [ False, name, LINEAR, dist, stage]
 
-        self.judge_autentification[tg_id] = random.randint(10000, 99999)
-        write_aut_info(self);
-        write_judge_list(self);
+        self.judge_autentification[tg_id] = random.randint(10000, 99999) #??? поправить рандомайзер который не генерит одинаковые
+        write_aut_info(self)
+        write_judge_list(self)
         return (True, self.judge_autentification[tg_id])
 
-    def write_aut_info(self):
-        #self.filename_aut = self.filename_aut 
-        with open(self.filename_aut + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION, 'W') as file:
+    def write_aut_info(self): # записываем id из tg и пароли
+        #self.filename_aut = self.filename_aut
+        with open(self.filename_aut + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION, 'W') as file: #time - чтобы были логи
             for line in self.judge_autentification:
                 string = line + ' | ' + self.judge_autentification[line] + "\n"
                 file.write(string)
@@ -190,7 +194,7 @@ class Judges:
                 judgepassword = line[namesize + 3 : ]
                 self.judge_autentification[judgename] = (judgepassword, False, 0, 0) # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
     # Можно сделать сканер директории и автоматически загружать последний по времени файл.
-    def load_judge_list(self, filename: str):
+    def load_judge_dict(self, filename: str): #загружам данные judge_dict
         if filename != None:
             self.filename_list = filename
         else:
@@ -205,15 +209,15 @@ class Judges:
             self.judge_dict.set_index('Tg_id')
             raise Exsepton("Judges::load_judge_list: Wrong data in filename=" + filename + ". There is no Judges::list_of_params.")
 
-    def try_to_autentificate_judge(judge_name, judge_password: str) -> bool:
-        if judge_name in self.judge_autentification.keys():
-            if self.judge_autentification[judge_name] == judge_password:
-                user_info = self.judge_autentification[judge_name]
-                self.judge_autentification[judge_name] = (user_info[0], True, user_info[2], time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
+    def try_to_autentificate_judge(self, judge_tg_id, judge_password: str) -> bool: #челик вводит пароль, ключ tg_id
+        if judge_tg_id in self.judge_autentification.keys():
+            if self.judge_autentification[judge_tg_id] == judge_password:
+                user_info = self.judge_autentification[judge_tg_id]
+                self.judge_autentification[judge_tg_id] = (user_info[0], True, user_info[2], time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
                 return True
             else:
-                user_info = self.judge_autentification[judge_name]
-                self.judge_autentification[judge_name] = (user_info[0], user_info[1], user_info[2] + 1, time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
+                user_info = self.judge_autentification[judge_tg_id]
+                self.judge_autentification[judge_tg_id] = (user_info[0], user_info[1], user_info[2] + 1, time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
                 return False
         else:
             return False
@@ -244,7 +248,7 @@ class Users:
         
          self.user_dict = pd.read_excel(self.filename + SHEET_EXTENTION)
          self.user_dict.set_index('Tg_id')
-         if not set(list_of_params).issubset(self.user_dict.columns):
+         if not set(list_of_params).issubset(self.user_dict.columns): #проверка что нам дали адекватный файл(например не файл с судьями)
             self.user_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
             self.user_dict.set_index('Tg_id')
             raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
@@ -268,7 +272,7 @@ class Teams:
     def load_users(self, filename: str = None):
          if filename != None:
             self.filename = filename
-         else:
+        else:
             if self.filename == None:
                 raise Exseption("Users::load_users: empty file name and empty self.filename. I can't contine load")
         
