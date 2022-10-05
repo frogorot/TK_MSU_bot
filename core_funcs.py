@@ -57,32 +57,31 @@ class TimeTable:
         #self.bounds_of_free = {self.table[0].start : self.table[0]} #< Список "границ" свободных в непрервном отрезке свободных: ++--+-+++ - здесь должны быть 0, 1, 4, 6, 8. 
 
     def is_time_free(self, time_for_check) -> (bool, time): # возвращает самое раннее время старта до time
-        if time < self.open_time or time > self.close_time:
+        if time_for_check < self.open_time or time > self.close_time:
             return (False, 0)
         else:
             for slot in self.table: # Можно оптимизировать, но лень
-                if slot.is_free and slot.start <= time_for_check and time_for_check <= slot.start + slot.interval: #
+                if slot.is_free and slot.start <= time_for_check and time_for_check <= slot.start + slot.interval:
                     return (True, slot.start)
             else:
                 return (False, 0)
 
     def booking_slot(self, rand: bool) -> time: # резервация слота
         if rand:
-            rand_pos = random.randint(0, len(self.table)-1)
+            rand_pos = random.randint(0, len(self.table)-1) # или random.sample(range(100), 1) - список
             for slot_num in range(rand_pos, len(self.table)-1): # ищем первое свободное после случайного
+                cur_slot = self.table[slot_num] #почему не сделать его экземпляром класса слот?
+                if cur_slot.is_free:
+                    cur_slot.is_free = False
+                    return cur_slot.start
+            for slot_num in range(0, rand_pos-1): # Если после все заняты, ищем до.
                 cur_slot = self.table[slot_num]
                 if cur_slot.is_free:
                     cur_slot.is_free = False
                     return cur_slot.start
-            else: 
-                for slot_num in range(0, rand_pos-1): # Если после все заняты, ищем до.
-                    cur_slot = self.table[slot_num]
-                    if cur_slot.is_free:
-                        cur_slot.is_free = False
-                        return cur_slot.start
                 else:
                     raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
-        else:
+        else: #тут ищем первый свободный, верно, Лёша?
             for slot in self.table: # Можно оптимизировать, но лень - проверяем всю табличку(а можем только свободные)
                 cur_slot = self.table[slot_num]
                 if cur_slot.is_free:
