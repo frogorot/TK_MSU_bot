@@ -1,5 +1,3 @@
-from datetime import time
-from datetime import timedelta
 import random
 import toml
 import pandas as pd
@@ -19,7 +17,7 @@ class Parser:
 		""" ini_file shoud be a full name"""
 		#path = pathlib.Path(ini_file)
 		#str_path = str(path)
-		print(ini_file)
+		#print(ini_file)
 
 		self.parsed_toml = toml.load(ini_file)
 
@@ -32,55 +30,57 @@ class Parser:
 
 
 class Slot:
-	def __init__(self, order_number, start: time, interval: time, is_free):
+	def __init__(self, order_number, start: int, interval: int, is_free):
 		self.order_number = order_number
 		self.start = start
 		self.interval = interval
 		self.is_free = is_free
 
 
-def is_seg_nin_seg_list(moment: (time, time), segment_list: list(time, time))-> bool: 
-	# Проверяет, находится пересекается ли отрезок с каким-то отрезком из списка
+#def is_seg_nin_seg_list(moment: (int, int), segment_list: list(int, int))-> bool: 
+#	# Проверяет, находится пересекается ли отрезок с каким-то отрезком из списка
+#
+#	for segment in segment_list:
+#		if moment(1) >= segment[0] and moment(0) <= segment[1]: # Проще всего проверить истинность, если взять отрицание
+#			return False
+#	else:
+#		return True
 
-	for segment in segment_list:
-		if moment(1) >= segment[0] and moment(0) <= segment[1]: # Проще всего проверить истинность, если взять отрицание
-			return False
-	else:
-		return True
 
-
-def is_seg_nin_seg_list(left_point: time, length: timedelta, segment_list: list(time, time))-> bool: 
+def is_seg_nin_seg_list(left_point: int, length: int, segment_list: list)-> bool: 
 	# Проверяет, находится пересекается ли отрезок, заданный лывой точкой и длинной, с каким-то отрезком из списка
 	right_point = left_point + length
-	for segment in segment_list:
+	for segment in segment_list: # Совсем по хорошему надо насовать проверок, но лень.
 		if left_point >= segment[0] and right_point <= segment[1]: # Проще всего проверить истинность, если взять отрицание
 			return False
 	else:
 		return True
-	
+
+def gene_table(open_time: int, close_time: int, interval: int):
+	i = open_time
+	while i <= (close_time - interval):
+		yield i
+		i += interval
+# open_time - время открытия дистанции, close_time - время закрытия дистанции
+def from_start_time_to_num_default(current_start_time, open_time, interval): #конверитирует время старта слота в его номер
+	return (current_start_time - open_time) / interval;
 
 class TimeTable:
 	# open_time - время открытия дистанции, close_time - время закрытия дистанции
-	def __init__(self, distance: str, open_time: time, close_time: time, interval: time, passing_time: time):
+	def from_start_time_to_num_default(self, current_start_time): #конверитирует время старта слота в его номер
+		return (current_start_time - self.open_time) / self.interval;
+
+	def __init__(self, distance: str, open_time: int, close_time: int, interval: int, passing_time: int):
 		self.name = distance
 		self.open_time = open_time
 		self.close_time = close_time
 		self.interval = interval
 		self.dist_passing_time = passing_time
-		self.table = [ Slot(from_start_time_to_num_default(slot_time), slot_time, interval, True)  for slot_time in gene_table(open_time, close_time, interval) ] # пустой стартовый протокол 
+		self.table = [ Slot(from_start_time_to_num_default(slot_time, self.open_time, self.interval), slot_time, interval, True)
+				for slot_time in gene_table(open_time, close_time, interval) ] # пустой стартовый протокол 
 		self.table_of_free = { slot.order_number : slot for slot in self.table } # Не список, так как свободные слоты могут идти хаотично. Индексация всё равно по порядковому номеру слотов
 
-	def gene_table(open_time, close_time, interval):
-		i = open_time
-		while i <= (close_time - interval):
-			yield i
-			i += interval
-
-	def from_start_time_to_num_default(current_start_time): #конверитирует время старта слота в его номер
-		return (current_start_time - self.open_time) / self.interval;
-		#self.bounds_of_free = {self.table[0].start : self.table[0]} #< Список "границ" свободных в непрервном отрезке свободных: ++--+-+++ - здесь должны быть 0, 1, 4, 6, 8. 
-
-	def is_time_free(self, time_for_check) -> (bool, time): # возвращает самое раннее время старта до time
+	def is_time_free(self, time_for_check) -> (bool, int): # возвращает самое раннее время старта до int
 		if time_for_check < self.open_time or time_for_check > self.close_time:
 			return (False, 0)
 		else:
@@ -90,7 +90,7 @@ class TimeTable:
 			else:
 				return (False, 0)
 	
-	def booking_slot(self, rand: bool) -> (int, time, time): # резервация слота. Возвращает пару: (время старта, предполагаемое время финиша)
+	def booking_slot(self, rand: bool) -> (int, int, int): # резервация слота. Возвращает пару: (время старта, предполагаемое время финиша)
 		cur_slot;
 		if rand:
 			rand_pos = random.randint(0, len(self.table)-1)
@@ -125,7 +125,7 @@ class TimeTable:
 
 		return (cur_slot.order_num, cur_slot.start, cur_slot.start + self.dist_passing_time)
 
-	def booking_slot(self, rand: bool, list_of_unavailable: list(time,time) = None) -> (int, time, time):
+	def booking_slot(self, rand: bool, list_of_unavailable: list = None) -> (int, int, int):
 		cur_slot;
 		if rand:
 			rand_pos = random.randint(0, len(self.table)-1)
@@ -226,7 +226,7 @@ class TimeTable:
 
 	def TableFromDF(self, df: pd.DataFrame): # датафрейм в список
 		if (not 'Start_times' in  df.columns) or (not 'Free_slot' in  df.columns):
-			raise Exception('TableFromDF:: wrond df, there no some columns')
+			raise Exception('TableFromDF:: wrong df, there no some columns')
 		else:
 			self.table.clear()
 			for df_ind in df.index():
@@ -238,7 +238,7 @@ class TimeTable:
 				if df[df_ind]['Free_slot']:
 					self.table_of_free[df_ind] = self.table[-1] # Нужно проверить
 
-	def setSlot(self, slot_num: int, start_time: time, interval: time, is_free: bool): # добавляет слот с заданными параметрами в конец списка
+	def setSlot(self, slot_num: int, start_time: int, interval: int, is_free: bool): # добавляет слот с заданными параметрами в конец списка
 		if slot_num > (len(self.table) - 1): # Если номер больше имевшихся, то заполняем "пропуск" дефолтными слотами
 			for slot in range(len(self.table) - 1, slot_num):
 				 self.table.append( Slot(slot, self.open_time + slot*self.interval, interval, True) )
@@ -300,14 +300,14 @@ class Judges:
 
 	def write_aut_info(self): # записываем id из tg и пароли
 		#self.filename_aut = self.filename_aut
-		with open(self.filename_aut + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".aut", 'W') as file: #time - чтобы были логи
+		with open(self.filename_aut + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + ".aut", 'W') as file: #int - чтобы были логи
 			for line in self.judge_autentification:
 				string = line + ' | ' + self.judge_autentification[line] + "\n"
 				file.write(string)
 
 	def write_judge_list(self):
 		#self.filename_dict = self.filename_dict 
-		self.judge_dict.to_excel(self.filename_dict + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+		self.judge_dict.to_excel(self.filename_dict + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
 
 	# Можно сделать сканер директории и автоматически загружать последний по времени файл.
 	def load_aut_info(self, filename: str = None): #filename без .xlsx
@@ -343,11 +343,11 @@ class Judges:
 		if judge_tg_id in self.judge_autentification.keys():
 			if self.judge_autentification[judge_tg_id] == judge_password:
 				user_info = self.judge_autentification[judge_tg_id]
-				self.judge_autentification[judge_tg_id] = (user_info[0], True, user_info[2], time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
+				self.judge_autentification[judge_tg_id] = (user_info[0], True, user_info[2], int.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
 				return True
 			else:
 				user_info = self.judge_autentification[judge_tg_id]
-				self.judge_autentification[judge_tg_id] = (user_info[0], user_info[1], user_info[2] + 1, time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
+				self.judge_autentification[judge_tg_id] = (user_info[0], user_info[1], user_info[2] + 1, int.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) )
 				return False
 		else:
 			return False
@@ -373,7 +373,7 @@ class Users:
 		self.user_dict.set_index('Tg_id')
 
 	def write_users(self):
-		self.user_dict.to_excel(self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+		self.user_dict.to_excel(self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
 
 	def load_users(self, filename: str = None):
 		if filename != None:
@@ -403,7 +403,7 @@ class Teams:
 		self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
 	def write_teams(self):
-		self.team_dict.to_excel(self.filename + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + SHEET_EXTENTION)
+		self.team_dict.to_excel(self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
 
 	def load_users(self, filename: str = None):
 		if filename != None:
@@ -481,16 +481,12 @@ class DistanceResults:
 			self.table.loc[slot_num, col_name] = value
 		else:
 			raise Exception("DistanceResults.writesell:: There in no column=" + col_name + "in self.table.")
-dist_dict = {}
-dist_print_pattern = []
+#dist_dict = {}
+#dist_print_pattern = []
 
-def print_my_class(tt):
-	if hasattr(tt, 'to_dafaframe'):
-		cur_time = time.localtime(time.time())
-		name = str()
-		if hasattr(tt, 'name'):
-			name= 'sheets\\' + type(tt).__name__ + tt.name + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".xlsx"
-		else:
-			name= 'sheets\\' + type(tt).__name__ + time.strftime("-%m.%d.%Y,%H-%M-%S", cur_time) + ".xlsx"
-		df = tt.to_dafaframe()
-		df.to_excel(excel_writer = "sheets\ " + type(tt) + time.ctime(time.time()) + ".xlsx")
+time_table_dict = {}
+
+dist_personal_dict = {}
+dist_personal_print_pattern = [ [0,2,3],[1,4]]
+dist_group_dict = {}
+dist_group_print_pattern = [ [0,2,3],[1,4]]
