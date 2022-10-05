@@ -43,41 +43,52 @@ logger = logging.getLogger(__name__)
 #user registration steps:
 AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
 
-# Handle '/start' and '/help'
+# Handle '/help'
 # Дописать!!
-#@bot.message_handler(commands=['help', 'start'])
-def send_welcome(message):
-	msg = bot.reply_to(message, """\
+async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+	text =  """
 Привет! Я бот горного Турклуба МГУ. Я совсем маленький, но быстро учусь!
 Мои команды:
-\start - Регистрация участника на слёт. Во время регистрации можно выбрать интересующие вас _личные_ дистанции.
-\new_team - Регистрация команды на командную дистанцию.
-\my_dist - Список дистанций, на которые вы зарегистрированы.
-\ask_admin - Написанное после этой команды сообщение будет передано администратору. Может пригодится для связи по проблемам или предложениям и замечаниям.
+/start - Регистрация участника на слёт. Во время регистрации можно выбрать интересующие вас _личные_ дистанции.
+/new_team - Регистрация команды на командную дистанцию. На каждую дистанцию регистрируется отдельная команда.
+/my_dist - Список дистанций (как личных, так и командных, на которые вы зарегистрированы.
+/ask_admin - Написанное после этой команды сообщение будет передано администратору. Может пригодится для связи по проблемам или предложениям и замечаниям.
 """)
 	#bot.register_next_step_handler(msg, process_name_step)
 
 def processing_exceptions(message, Exception):
 	bot.reply_to(message, 'Что-то пошло не так( Попробуйте ещё раз!')
+	print('Что-то пошло не так( Попробуйте ещё раз!')
 	if not admin_chat_id == None:
 		bot.send_message(admin_chat_id, e.args)
 
+MESSAGE_TO_ADMIN = 0
 # Handle '/ask_admin'
 #@bot.message_handler(commands=['ask_admin'])
-def process_ask_admin(message):
-	try:
-		msg = bot.reply_to(message, 'Пожалуйста, введите сообщение для Администратора.')
-		bot.register_next_step_handler(msg, process_send_to_admin)
-	except Exception as e:
-		processing_exceptions(message, e)
+async def process_ask_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	await update.message.reply_text(
+	   'Пожалуйста, введите сообщение для Администратора.'
+	)
+	return MESSAGE_TO_ADMIN
 
-def process_send_to_admin(message):
+async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	await update.message.reply_text(
+	   'Ваше сообщение передано Администратору.'
+	)
+	if update.message.chat.has_protected_content or update.message.has_protected_content:
+		print("Unavalable")
+	# forward_message Не работает
 	try:
-		bot.forwardMessage(chat_id = admin_chat_id, from_chat_id = message.chat.id, message_id = message.message_id)
-		msg = bot.reply_to(message, 'Ваше сообщение передано Администратору.')
-	except Exception as e:
-		processing_exceptions(message, e)
 
+		await update.message.forward(chat_id= cf.admin_chat_id, 
+					   #from_chat_id= update.message.chat.id, 
+					   disable_notification = True 
+					   #message_id= update.message.message_id
+					   )
+	except Exception as ex:
+		processing_exceptions(update.message, ex)
+	return ConversationHandler.END
 
 async def user_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Starts the conversation and asks the user about their name."""
@@ -178,7 +189,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	user = update.message.from_user
 	logger.info("User %s canceled the conversation.", user.first_name)
 	await update.message.reply_text(
-		"Bye! I hope we can talk again some day.", reply_markup=ReplyKeyboardRemove()
+		"Хорошо, поговорим потом!", reply_markup=ReplyKeyboardRemove()
 	)
 
 	return ConversationHandler.END
