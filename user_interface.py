@@ -63,9 +63,9 @@ def processing_exceptions(message, Exception):
 	if not admin_chat_id == None:
 		bot.send_message(admin_chat_id, e.args)
 
-MESSAGE_TO_ADMIN = 0
+
 # Handle '/ask_admin'
-#@bot.message_handler(commands=['ask_admin'])
+MESSAGE_TO_ADMIN = 0
 async def process_ask_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	await update.message.reply_text(
 	   'Пожалуйста, введите сообщение для Администратора.'
@@ -79,17 +79,17 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 	if update.message.chat.has_protected_content or update.message.has_protected_content:
 		print("Unavalable")
 	# forward_message Не работает
-	try:
 
-		await update.message.forward(chat_id= cf.admin_chat_id, 
-					   #from_chat_id= update.message.chat.id, 
-					   disable_notification = True 
-					   #message_id= update.message.message_id
-					   )
-	except Exception as ex:
-		processing_exceptions(update.message, ex)
+	await update.message.forward(chat_id= cf.admin_chat_id, 
+				   #from_chat_id= update.message.chat.id, 
+				   disable_notification = True 
+				   #message_id= update.message.message_id
+				   )
 	return ConversationHandler.END
 
+#Handle user_reg
+#user registration steps:
+AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
 async def user_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Starts the conversation and asks the user about their name."""
 	await update.message.reply_text(
@@ -103,33 +103,52 @@ async def user_reg_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 	"""Stores the selected name and asks for a age."""
 	user = update.message.from_user
 	logger.info("Name of %s: %s", user.first_name, update.message.text)
-	await update.message.reply_text(
+	if all(x.isalpha() or x.isspace() for x in update.message.text):
+		cf.users.user_dict.loc[user.id, 'Name'] = update.message.text
+		await update.message.reply_text(
 		"Приятно познакомится! "
 		"Сколько вам лет?."
-	)
-
-	return GENDER
+		)
+		return GENDER
+	else:
+		await update.message.reply_text(
+			"Пожалуйста, напишите имя и фамилию."
+			"Для этого вам нужны только буквы и пробелы ;)"
+		)
+		return AGE
+	
 
 async def user_reg_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Stores the selected age and asks for a gender."""
 	user = update.message.from_user
 	logger.info("Age of %s: %s", user.first_name, update.message.text)
 
-	reply_keyboard = [["Мальчик", "Девочка"]]
+	if update.message.text.isdigit() and  0 < int(update.message.text) and int(update.message.text) < 120:
+			cf.users.user_dict.loc[user.id, 'Age'] = update.message.text
+			reply_keyboard = [["Мальчик", "Девочка"]]
 	
-	await update.message.reply_text(
-		"Пожалуйста, выберете ваш пол.",
-		reply_markup=ReplyKeyboardMarkup(
-			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
-		),
-	)
-	
-	return UNIVERSITY
+			await update.message.reply_text(
+				"Пожалуйста, выберете ваш пол.",
+				reply_markup=ReplyKeyboardMarkup(
+					reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
+				),
+			)
+		
+			return UNIVERSITY
+	else:
+		await update.message.reply_text(
+				"Сколько вам лет?"
+				"Для этого вам нужны только цифры. Я уверен, что вам где-то от 0 до 120 лет."
+			)
+		return GENDER
 
 async def user_reg_university(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Stores the selected gender and asks for a university."""
 	user = update.message.from_user
 	logger.info("Univer of %s: %s", user.first_name, update.message.text)
+
+	cf.users.user_dict.loc[user.id, 'Sex'] = update.message.text
+
 	await update.message.reply_text(
 		"В каком вузе вы учитесь? "
 		"Если вы не студент, можете написать место работы или поставить \"-\".",
@@ -143,6 +162,10 @@ async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 	"""Stores the selected university and asks for a facility or for distances."""
 	user = update.message.from_user
 	logger.info("fasil of %s: %s", user.first_name, update.message.text)
+	
+	cf.users.user_dict.loc[user.id, 'University'] = update.message.text
+	cf.users.user_dict.loc[user.id, 'Distances'] = []
+
 	is_msu = re.search("МГУ", update.message.text)
 	if is_msu != None:
 		await update.message.reply_text(
@@ -150,6 +173,7 @@ async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 		)
 		return DISTANCES
 	else:
+
 		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
 						  ["Охота на лис", "Водная"],
 						  ["всё"]]
@@ -172,6 +196,8 @@ async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE)
 		return ConversationHandler.END
 	else:
 		logger.info("Dist of %s: %s", user.first_name, update.message.text)
+
+		cf.users.user_dict.loc[user.id, 'Distances'].append(update.message.text)
 
 		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
 						  ["Охота на лис", "Водная"],

@@ -117,7 +117,7 @@ def main() -> None:
 
 	# Run the interface until the user presses Ctrl-C
 	application.run_polling()
-  
+
 
 if __name__ == "__main__":
 	main()

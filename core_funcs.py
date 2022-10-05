@@ -373,6 +373,8 @@ class Users:
 		self.user_dict.set_index('Tg_id')
 
 	def write_users(self):
+		if self.filename == None:
+			self.filename = "Users"
 		self.user_dict.to_excel(self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
 
 	def load_users(self, filename: str = None):
@@ -492,3 +494,5 @@ dist_group_dict = {}
 dist_group_print_pattern = [ [0,2,3],[1,4]]
 
 admin_chat_id = None
+
+users = Users()
