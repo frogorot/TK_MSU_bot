@@ -11,7 +11,7 @@ from telegram.ext import (
     filters,
 )
 
-import bot
+import interface
 import core_funcs as cf
 
 def main() -> None:
