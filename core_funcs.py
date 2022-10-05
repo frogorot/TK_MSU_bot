@@ -81,15 +81,15 @@ class TimeTable:
 		#self.bounds_of_free = {self.table[0].start : self.table[0]} #< Список "границ" свободных в непрервном отрезке свободных: ++--+-+++ - здесь должны быть 0, 1, 4, 6, 8. 
 
 	def is_time_free(self, time_for_check) -> (bool, time): # возвращает самое раннее время старта до time
-		if time < self.open_time or time > self.close_time:
+		if time_for_check < self.open_time or time_for_check > self.close_time:
 			return (False, 0)
 		else:
-			for slot in self.table_of_free: # Можно оптимизировать, но лень
-				if slot.is_free and slot.start <= time_for_check and time_for_check <= slot.start + slot.interval: #
+			for slot in self.table: # Можно оптимизировать, но лень
+				if slot.is_free and slot.start <= time_for_check and time_for_check <= slot.start + slot.interval:
 					return (True, slot.start)
 			else:
 				return (False, 0)
-
+	
 	def booking_slot(self, rand: bool) -> (int, time, time): # резервация слота. Возвращает пару: (время старта, предполагаемое время финиша)
 		cur_slot;
 		if rand:
