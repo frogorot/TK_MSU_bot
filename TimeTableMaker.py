@@ -10,9 +10,6 @@ from telegram.ext import (
 	MessageHandler,
 	filters,
 )
-from datetime import datetime 
-from datetime import timedelta 
-import time
 
 import user_interface
 import core_funcs as cf
