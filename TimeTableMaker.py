@@ -11,7 +11,7 @@ from telegram.ext import (
 	filters,
 )
 
-import interface
+import user_interface
 import core_funcs as cf
 
 
@@ -53,7 +53,7 @@ def main() -> None:
 		#minutes=int(dist_params[open_time_str][3:4]), hours= int(dist_params[open_time_str][0:1]))
 		#open_time = datetime(year=2022, month=10, day=15, hour= int(dist_params[open_time_str][0:1]), minute= int(dist_params[open_time_str][3:4]), second = 0)
 		#close_time = datetime(year=2022, month=10, day=15, hour= int(dist_params[close_time_str][0:1]), minute= int(dist_params[close_time_str][3:4]), second = 0)
-		#interval = datetime(year=2022, month=10, day=15, hour= 0, minute= int(dist_params[open_time_str][0:1]), second = int(dist_params[passing_time_str][3:4]))
+		#interval = datetime(year=2022, month=10, day=15, hour= 0, minute= int(dist_params[open_time_str][0:1]), second = int(dist_params[pauser_interfacessing_time_str][3:4]))
 		#passing_time = datetime(year=2022, month=10, day=15, hour= 0, minute= int(dist_params[open_time_str][0:1]), second = int(dist_params[passing_time_str][3:4]))
 
 		cf.time_table_dict[name] = cf.TimeTable(name, 
@@ -78,24 +78,40 @@ def main() -> None:
 
 
 	API_TOKEN =  sucere_pars.at('Token')
+	cf.admin_chat_id = sucere_pars.at('admin_chat_id')
 
 	"""Run the interface."""
 	# Create the Application and pass it your interface's token.
 	application = Application.builder().token(API_TOKEN).build()
 
-	# Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
-	conv_handler = ConversationHandler(
-		entry_points=[CommandHandler("start", interface.user_reg_start)],
+	#/Help handler
+	help_hendler = CommandHandler("help", user_interface.send_welcome)
+
+	#/ask_admin handler
+	admin_connect_handler = ConversationHandler(
+		entry_points=[CommandHandler("ask_admin", user_interface.process_ask_admin)],
 		states={
-			interface.AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, interface.user_reg_age)],
-			interface.GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, interface.user_reg_gender)],
-			interface.UNIVERSITY: [MessageHandler(filters.Regex("^(Мальчик|Девочка)$"), interface.user_reg_university)],
-			interface.FACILITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, interface.user_reg_facility)],
-			interface.DISTANCES: [MessageHandler(filters.Regex("^(Горная|Пешеходная|Водная|Вело|Охота на лис)$"), interface.user_reg_distances)],
+			user_interface.MESSAGE_TO_ADMIN: [MessageHandler(filters.ALL, user_interface.process_send_to_admin)],
+			#user_interface.MESSAGE_TO_ADMIN: [MessageHandler(~filters.TEXT, user_interface.process_send_to_admin)],
 		},
-		fallbacks=[CommandHandler("cancel", interface.cancel)],
+		fallbacks=[CommandHandler("cancel", user_interface.cancel)],
 	)
 
+	#/user Handler
+	conv_handler = ConversationHandler(
+		entry_points=[CommandHandler("start", user_interface.user_reg_start)],
+		states={
+			user_interface.AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_reg_age)],
+			user_interface.GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_reg_gender)],
+			user_interface.UNIVERSITY: [MessageHandler(filters.Regex("^(Мальчик|Девочка)$"), user_interface.user_reg_university)],
+			user_interface.FACILITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_reg_facility)],
+			user_interface.DISTANCES: [MessageHandler(filters.Regex("^(Горная|Пешеходная|Водная|Вело|Охота на лис|всё)$"), user_interface.user_reg_distances)],
+		},
+		fallbacks=[CommandHandler("cancel", user_interface.cancel)],
+	)
+
+	application.add_handler(help_hendler)
+	application.add_handler(admin_connect_handler)
 	application.add_handler(conv_handler)
 	print("Bot start")
 

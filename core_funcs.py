@@ -490,3 +490,5 @@ dist_personal_dict = {}
 dist_personal_print_pattern = [ [0,2,3],[1,4]]
 dist_group_dict = {}
 dist_group_print_pattern = [ [0,2,3],[1,4]]
+
+admin_chat_id = None
