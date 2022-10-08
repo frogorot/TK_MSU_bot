@@ -1,7 +1,8 @@
 import random
 import toml
 import pandas as pd
-import pathlib 
+#import pathlib 
+import time
 
 #SECURE_DIRECTORY_NAME = 'secure_info'
 #INFO_DIRECTORY_NAME = 'load_info'
@@ -30,7 +31,7 @@ class Parser:
 
 
 class Slot:
-	def __init__(self, order_number, start: int, interval: int, is_free):
+	def __init__(self, order_number: int, start: int, interval: int, is_free):
 		self.order_number = order_number
 		self.start = start
 		self.interval = interval
@@ -63,11 +64,11 @@ def gene_table(open_time: int, close_time: int, interval: int):
 		i += interval
 # open_time - время открытия дистанции, close_time - время закрытия дистанции
 def from_start_time_to_num_default(current_start_time, open_time, interval): #конверитирует время старта слота в его номер
-	return (current_start_time - open_time) / interval;
+	return int((current_start_time - open_time) / interval)
 
 class TimeTable:
 	# open_time - время открытия дистанции, close_time - время закрытия дистанции
-	def from_start_time_to_num_default(self, current_start_time): #конверитирует время старта слота в его номер
+	def from_start_time_to_num_default(self, current_start_time) -> int: #конверитирует время старта слота в его номер
 		return (current_start_time - self.open_time) / self.interval;
 
 	def __init__(self, distance: str, open_time: int, close_time: int, interval: int, passing_time: int):
@@ -123,19 +124,20 @@ class TimeTable:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
 				return (0,0,0)
 
-		return (cur_slot.order_num, cur_slot.start, cur_slot.start + self.dist_passing_time)
+		return (cur_slot.order_number, cur_slot.start, cur_slot.start + self.dist_passing_time)
 
-	def booking_slot(self, rand: bool, list_of_unavailable: list = None) -> (int, int, int):
-		cur_slot;
+	def booking_slot(self, rand: bool, list_of_unavailable: list = []) -> (int, int, int):
+		cur_slot = None
 		if rand:
 			rand_pos = random.randint(0, len(self.table)-1)
-			if self.table[rand_pos].is_free:
+
+			if self.table[rand_pos].is_free and is_seg_nin_seg_list( self.table[rand_pos].start, self.dist_passing_time, list_of_unavailable):
 				cur_slot = self.table[rand_pos]
 				#return (rand_pos, self.table[rand_pos].start, self.table[rand_pos].start + self.dist_passing_time)
 			
 			else:
 				awaleble_free_slots = []
-				if list_of_unavailable == None:
+				if list_of_unavailable == []:
 					awaleble_free_slots = self.table_of_free.keys() 
 				else:
 					awaleble_free_slots = [slot_num for slot_num in self.table_of_free 
@@ -150,61 +152,25 @@ class TimeTable:
 						min_distance = abs(slot_num - rand_pos)
 				else:
 					cur_slot = self.table_of_free[nearest_slot_num]
-					#return (nearest_slot_num, self.table_of_free[nearest_slot_num], self.table_of_free[nearest_slot_num] + self.dist_passing_time)
-
-			#for slot_num in self.table_of_free: # ищем первое свободное после случайного
-			#	if slot_num >= 
-			#	cur_slot = self.table_of_free[slot_num]
-			#	if cur_slot.is_free:
-			#		cur_slot.is_free = False
-			#		break
-			#		#return (cur_slot.start, cur_slot.start + self.dist_passing_time)
-			#else: 
-			#	down_free_slots;
-			#	if list_of_unavailable == None:
-			#		down_free_slots = [slot_num for slot_num in self.table_of_free 
-			#			if slot_num >= rand_pos]
-			#	else:
-			#		down_free_slots = [slot_num for slot_num in self.table_of_free 
-			#			if slot_num >= rand_pos and 
-			#				is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable) ]
-			#
-			#
-			#	for slot_num in down_free_slots: # Если после все заняты, ищем до.
-			#		cur_slot = self.table_of_free[slot_num]
-			#		if cur_slot.is_free:
-			#			cur_slot.is_free = False
-			#			pass
-			#			#return (cur_slot.start, cur_slot.start + self.dist_passing_time)
-			#	else:
-			#		raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
-			#		return (0,0,0)
-		#else:
-			#list_of_interest;
-			#if list_of_unavailable == None:
-			#	list_of_interest = self.table_of_free.keys()
-			#else:
-			#	list_of_interest = [slot_num for slot_num in self.table_of_free 
-			#			if is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable)]
-
-		elif list_of_unavailable == None:
+		elif list_of_unavailable == []:
 			if self.table_of_free != None:
 				cur_slot = self.table_of_free[0]
 				#return (self.table_of_free[0].order_number, self.table_of_free[0].start, self.table_of_free[0] + self.dist_passing_time)
 			else:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
-				return (0,0,0)
+				return (-1,0,0)
 		else:
-			for slot_num in self.table_of_free: # Можно оптимизировать, но лень - проверяем всю табличку(а можем только свободные)
+			for slot_num in self.table_of_free: 
 				if is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable):
 					cur_slot = self.table_of_free[slot_num]
+					break
 					#return (self.table_of_free[slot_num].order_number, self.table_of_free[slot_num].start, self.table_of_free[slot_num] + self.dist_passing_time)
 			else:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
-				return (0,0,0)
+				return (-1,0,0)
 		
 		cur_slot.is_free = False
-		return (cur_slot.order_num, cur_slot.start, cur_slot.start + self.dist_passing_time)
+		return (cur_slot.order_number, cur_slot.start, cur_slot.start + self.dist_passing_time)
 
 
 	def free_slots(self):
@@ -360,16 +326,19 @@ class Judges:
 
 class Users:
 	MALE, FEMALE = range(2)
-	def __init__(self):
-		list_of_params = ['Tg_id', 
+	RES_TIME = "Reserved times"
+
+	list_of_params = ['Tg_id', 
 						  'Name', 
 						  'Age', 
 						  'Sex', 
 						  'University', 
 						  'Facility', 
-						  'Distances']
+						  RES_TIME]
+
+	def __init__(self):
 		self.filename = None
-		self.user_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
+		self.user_dict = pd.DataFrame(columns = Users.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
 		self.user_dict.set_index('Tg_id')
 
 	def write_users(self):
@@ -486,15 +455,125 @@ class DistanceResults:
 #dist_dict = {}
 #dist_print_pattern = []
 
-time_table_dict = {}
+class Containers:
+	time_table_dict = {}
+	
+	COMPLETE_CHOOSING = 'Всё'
+	
+	dist_personal_dict = {}
+	dist_personal_keyboard = []
+	dist_group_dict = {}
+	dist_group_keyboard = []
+	
+	users = None
 
-COMPLETE_CHOOSING = 'Всё'
+	api_token = None
+	admin_chat_id = None
+	
+	
 
-dist_personal_dict = {}
-dist_personal_keyboard = []
-dist_group_dict = {}
-dist_group_keyboard = []
+class Loader:
+	pers_dist_group_name = 'personal_distances'
+	group_dist_group_name = 'group_distances'
+	open_time_str = "open_time" # часы:минуты
+	close_time_str = "close_time" # часы:минуты
+	interval_str = "interval" # минуты:секунды
+	passing_time_str = "passing_time" # минуты:секунды
 
-admin_chat_id = None
+	NUM_OF_KEYS_IN_ROW_FOR_DIST = 3
 
-users = Users()
+	def __init__(self, run_name: str = "run.ini"):
+		#run_file = "run.ini"
+		self.run_pars = Parser()
+		self.run_pars.load_toml(run_name)
+
+	# Загрузка всего из conf файлов
+	def load(self):
+
+		# Загрузка парсеров
+		self.sucere_pars = Parser()
+		self.sucere_pars.load_toml(self.run_pars.at('secure_file'))
+		self.info_pars = Parser()
+		self.info_pars.load_toml(self.run_pars.at('info_file'))
+		secure_directory = self.run_pars.at('secure_dir')
+		info_directory = self.run_pars.at('info_dir')
+
+		##############################################################
+		#Загрузка секретной информации
+		
+		Containers.api_token = self.sucere_pars.at('Token')
+		Containers.admin_chat_id = self.sucere_pars.at('admin_chat_id')
+
+		# Служебные переменные
+		i = 0
+		row = []
+
+		# Обработка информации по личным дистанциям
+		for p_dist in self.info_pars.at(Loader.pers_dist_group_name):
+			name = self.info_pars.at(Loader.pers_dist_group_name)[p_dist]
+			Containers.dist_personal_dict[name] = DistanceResults(name)
+			Users.list_of_params.append(name)
+
+			dist_params = self.info_pars.at(p_dist) 
+
+			open_time = int(dist_params[Loader.open_time_str][0:2]) * 3600 + int(dist_params[Loader.open_time_str][3:5]) * 60
+			close_time = int(dist_params[Loader.close_time_str][0:2]) * 3600 + int(dist_params[Loader.close_time_str][3:5]) * 60
+			interval = int(dist_params[Loader.interval_str][0:2]) * 60 + int(dist_params[Loader.interval_str][3:5])
+			passing_time = int(dist_params[Loader.passing_time_str][0:2]) * 60 + int(dist_params[Loader.passing_time_str][3:5])
+			
+			#Генерим пустой стартовый протокол.
+			Containers.time_table_dict[name] = TimeTable(name, 
+													open_time= open_time,
+													close_time= close_time,
+													interval= interval,
+													passing_time= passing_time)
+			#Генерим клавиатуру
+			if i == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
+				Containers.dist_personal_keyboard.append(row)
+				row = []
+				i -= Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST
+			i += 1
+			row.append(name)
+		
+		# Заканчиваем генерить клавиатуру
+		Containers.dist_personal_keyboard.append(row)
+		Containers.dist_personal_keyboard.append([ Containers.COMPLETE_CHOOSING])
+		row = []
+		i = 0
+
+		# Обработка информации по групповым дистанциям
+		for g_dist in self.info_pars.at(Loader.group_dist_group_name):
+			name = self.info_pars.at(Loader.group_dist_group_name)[g_dist]
+			Containers.dist_group_dict[name] = DistanceResults(name)
+
+			dist_params = self.info_pars.at(g_dist) 
+
+			open_time = int(dist_params[Loader.open_time_str][0:2]) * 3600 + int(dist_params[Loader.open_time_str][3:5]) * 60
+			close_time = int(dist_params[Loader.close_time_str][0:2]) * 3600 + int(dist_params[Loader.close_time_str][3:5]) * 60
+			interval = int(dist_params[Loader.interval_str][0:2]) * 60 + int(dist_params[Loader.interval_str][3:5])
+			passing_time = int(dist_params[Loader.passing_time_str][0:2]) * 60 + int(dist_params[Loader.passing_time_str][3:5])
+			
+			#Генерим пустой стартовый протокол.
+			Containers.time_table_dict[name] = TimeTable(name, 
+												open_time= open_time,
+												close_time= close_time,
+												interval= interval,
+												passing_time= passing_time)
+			#Генерим клавиатуру
+			if i == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
+				Containers.dist_group_keyboard.append(row)
+				row = []
+				i -= Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST
+			i += 1
+			row.append(name)
+
+		# Заканчиваем генерить клавиатуру
+		Containers.dist_group_keyboard.append(row)
+		Containers.dist_group_keyboard.append([Containers.COMPLETE_CHOOSING])
+
+		##############################################################
+		Containers.users = Users()
+
+
+
+
