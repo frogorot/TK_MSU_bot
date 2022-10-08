@@ -41,6 +41,10 @@ def main() -> None:
 	interval_str = "interval" # минуты:секунды
 	passing_time_str = "passing_time" # минуты:секунды
 
+	NUM_OF_KEYS_IN_ROW_FOR_DIST = 3
+	i = 0
+	row = []
+
 	for p_dist in info_pars.at(pers_dist_group_name):
 		name = info_pars.at(pers_dist_group_name)[p_dist]
 		cf.dist_personal_dict[name] = cf.DistanceResults(name)
@@ -55,12 +59,26 @@ def main() -> None:
 		#close_time = datetime(year=2022, month=10, day=15, hour= int(dist_params[close_time_str][0:1]), minute= int(dist_params[close_time_str][3:4]), second = 0)
 		#interval = datetime(year=2022, month=10, day=15, hour= 0, minute= int(dist_params[open_time_str][0:1]), second = int(dist_params[pauser_interfacessing_time_str][3:4]))
 		#passing_time = datetime(year=2022, month=10, day=15, hour= 0, minute= int(dist_params[open_time_str][0:1]), second = int(dist_params[passing_time_str][3:4]))
-
+		
+		#Генерим пустой стартовый протокол.
 		cf.time_table_dict[name] = cf.TimeTable(name, 
 												open_time= open_time,
 												close_time= close_time,
 												interval= interval,
 												passing_time= passing_time)
+		#Генерим клавиатуру
+		if i == NUM_OF_KEYS_IN_ROW_FOR_DIST:
+			cf.dist_personal_keyboard.append(row)
+			row = []
+			i -= NUM_OF_KEYS_IN_ROW_FOR_DIST
+		i += 1
+		row.append(name)
+
+	cf.dist_personal_keyboard.append(row)
+	cf.dist_personal_keyboard.append([ cf.COMPLETE_CHOOSING])
+	row = []
+	i = 0
+
 	for g_dist in info_pars.at(group_dist_group_name):
 		name = info_pars.at(group_dist_group_name)[g_dist]
 		cf.dist_group_dict[name] = cf.DistanceResults(name)
@@ -69,13 +87,22 @@ def main() -> None:
 		close_time = int(dist_params[close_time_str][0:2]) * 3600 + int(dist_params[close_time_str][3:5]) * 60
 		interval = int(dist_params[interval_str][0:2]) * 60 + int(dist_params[interval_str][3:5])
 		passing_time = int(dist_params[passing_time_str][0:2]) * 60 + int(dist_params[passing_time_str][3:5])
-
+		
+		#Генерим пустой стартовый протокол.
 		cf.time_table_dict[name] = cf.TimeTable(name, 
 												open_time= open_time,
 												close_time= close_time,
 												interval= interval,
 												passing_time= passing_time)
-
+		#Генерим клавиатуру
+		if i == NUM_OF_KEYS_IN_ROW_FOR_DIST:
+			cf.dist_group_keyboard.append(row)
+			row = []
+			i -= NUM_OF_KEYS_IN_ROW_FOR_DIST
+		i += 1
+		row.append(name)
+	cf.dist_group_keyboard.append(row)
+	cf.dist_group_keyboard.append([ cf.COMPLETE_CHOOSING])
 
 	API_TOKEN =  sucere_pars.at('Token')
 	cf.admin_chat_id = sucere_pars.at('admin_chat_id')
@@ -105,9 +132,10 @@ def main() -> None:
 			user_interface.GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_reg_gender)],
 			user_interface.UNIVERSITY: [MessageHandler(filters.Regex("^(Мальчик|Девочка)$"), user_interface.user_reg_university)],
 			user_interface.FACILITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_reg_facility)],
-			user_interface.DISTANCES: [MessageHandler(filters.Regex("^(Горная|Пешеходная|Водная|Вело|Охота на лис|всё)$"), user_interface.user_reg_distances)],
+			user_interface.DISTANCES: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_reg_distances)],
 		},
-		fallbacks=[CommandHandler("cancel", user_interface.cancel)],
+		fallbacks=[CommandHandler("cancel", user_interface.cancel),
+			 MessageHandler(filters.Regex("^(" + cf.COMPLETE_CHOOSING + ")$"), user_interface.user_reg_distances)],
 	)
 
 	application.add_handler(help_hendler)

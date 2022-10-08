@@ -41,8 +41,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 #user registration steps:
-AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
+AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES, EXIT = range(6)
 
+###########################################
 # Handle '/help'
 # Дописать!!
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -63,7 +64,7 @@ def processing_exceptions(message, Exception):
 	if not admin_chat_id == None:
 		bot.send_message(admin_chat_id, e.args)
 
-
+###########################################
 # Handle '/ask_admin'
 MESSAGE_TO_ADMIN = 0
 async def process_ask_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -87,11 +88,16 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 				   )
 	return ConversationHandler.END
 
+###########################################
 #Handle user_reg
 #user registration steps:
 AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
+
 async def user_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Starts the conversation and asks the user about their name."""
+
+
+
 	await update.message.reply_text(
 	   "Ура, давайте знакомится!"
 	   "Отправьте /cancel чтобы прекратить общение.\n\n"
@@ -115,7 +121,7 @@ async def user_reg_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 			"Пожалуйста, напишите имя и фамилию."
 			"Для этого вам нужны только буквы и пробелы ;)"
 		)
-		return AGE
+		return None # При возврате None  остаётся текущее состояние.
 	
 
 async def user_reg_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -123,7 +129,8 @@ async def user_reg_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	user = update.message.from_user
 	logger.info("Age of %s: %s", user.first_name, update.message.text)
 
-	if update.message.text.isdigit() and  0 < int(update.message.text) and int(update.message.text) < 120:
+	age = update.message.text
+	if age.isdigit() and  0 < int(age) and int(age) < 120:
 			cf.users.user_dict.loc[user.id, 'Age'] = update.message.text
 			reply_keyboard = [["Мальчик", "Девочка"]]
 	
@@ -140,7 +147,7 @@ async def user_reg_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 				"Сколько вам лет?"
 				"Для этого вам нужны только цифры. Я уверен, что вам где-то от 0 до 120 лет."
 			)
-		return GENDER
+		return None
 
 async def user_reg_university(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Stores the selected gender and asks for a university."""
@@ -171,44 +178,48 @@ async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 		await update.message.reply_text(
 			"На каком факультете вы учитесь? "
 		)
-		return DISTANCES
+		#return DISTANCES
 	else:
-
-		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
-						  ["Охота на лис", "Водная"],
-						  ["всё"]]
 		await update.message.reply_text(
 			"На каких дистанциях вы хотели бы участвовать?",
 			reply_markup=ReplyKeyboardMarkup(
-			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
+			cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберете дистанции"
 		),
 		)
-		return DISTANCES
+	
+	return DISTANCES
 	
 async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	user = update.message.from_user
-	if update.message.text == "всё":
+	
+	# Если сообщение пользователя не было в клавиатуре, то это ответ на вопрос о факультете 
+	if update.message.text not in cf.dist_personal_dict.keys():
+		logger.info("Facility of %s: %s", user.first_name, update.message.text)
+		cf.users.user_dict.loc[user.id, 'Facility'] = update.message.text
+	else:
+		logger.info("Dist of %s: %s", user.first_name, update.message.text)
+
+	# cf.COMPLETE_CHOOSING означает выход.
+	#
+	# Доделать!!
+	# Тут надо сделать отправку пользоветелю его данных и попросить согласие.
+	if update.message.text == cf.COMPLETE_CHOOSING:
 		await update.message.reply_text(
 			"Спасибо!",
 			reply_markup=ReplyKeyboardRemove(),
 			)
-		print(logger)
 		return ConversationHandler.END
-	else:
-		logger.info("Dist of %s: %s", user.first_name, update.message.text)
 
-		cf.users.user_dict.loc[user.id, 'Distances'].append(update.message.text)
-
-		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
-						  ["Охота на лис", "Водная"],
-						  ["всё"]]
-		await update.message.reply_text(
-			"На каких дистанциях вы хотели бы участвовать?",
-			reply_markup=ReplyKeyboardMarkup(
-			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
-		),
-		)
-		return DISTANCES
+	#reply_keyboard = [["Горная", "Вело", "Пешеходная"],
+	#				  ["Охота на лис", "Водная"],
+	#				  ["всё"]]
+	await update.message.reply_text(
+		"На каких дистанциях вы хотели бы участвовать?",
+		reply_markup=ReplyKeyboardMarkup(
+		cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберете дистанции"
+	),
+	)
+	return DISTANCES
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Cancels and ends the conversation."""
