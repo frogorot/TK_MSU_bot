@@ -12,6 +12,8 @@ from telegram.ext import (
 )
 
 import user_interface
+import judge_interface
+
 import core_funcs as cf
 
 
@@ -25,8 +27,8 @@ def main() -> None:
 	run_pars = cf.Parser()
 	run_pars.load_toml(run_file)
 
-	sucere_pars = cf.Parser()
-	sucere_pars.load_toml(run_pars.at('secure_file'))
+	secure_pars = cf.Parser()
+	secure_pars.load_toml(run_pars.at('secure_file'))
 	info_pars = cf.Parser()
 	info_pars.load_toml(run_pars.at('info_file'))
 	secure_directory = run_pars.at('secure_dir')
@@ -77,8 +79,8 @@ def main() -> None:
 												passing_time= passing_time)
 
 
-	API_TOKEN =  sucere_pars.at('Token')
-	cf.admin_chat_id = sucere_pars.at('admin_chat_id')
+	API_TOKEN =  secure_pars.at('Token')
+	cf.admin_chat_id = secure_pars.at('admin_chat_id')
 
 	"""Run the interface."""
 	# Create the Application and pass it your interface's token.
@@ -108,6 +110,15 @@ def main() -> None:
 			user_interface.DISTANCES: [MessageHandler(filters.Regex("^(Горная|Пешеходная|Водная|Вело|Охота на лис|всё)$"), user_interface.user_reg_distances)],
 		},
 		fallbacks=[CommandHandler("cancel", user_interface.cancel)],
+	)
+	# /judge Handler
+	judge_interface.notify
+	conv_handler = ConversationHandler(
+		entry_points=[CommandHandler("start", judge_interface.judge_reg_start)],
+		states={
+			judge_interface.DISTANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, judge_interface.judge_reg_distance)]
+		},
+		fallbacks=[CommandHandler("cancel", judge_interface.cancel)],
 	)
 
 	application.add_handler(help_hendler)
