@@ -391,46 +391,6 @@ class Teams:
 			self.team_dict.set_index(['Tg_id_major', 'Distance'])
 			raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
 
-#class Judge:
-#    MAJOR, LINEAR = range(2)
-#        
-#    def __init__(self, tg_id):
-#        self.tg_id = tg_id # realy is a chat_id
-#        self.name = None # Фио
-#        self.status = LINEAR
-#        self.diastances = [] 
-#        self.stage = [] # Этапы дистанций
-#
-#
-#class User:
-#    def __init__(self, tg_id):
-#        self.tg_id = tg_id # realy is a chat_id
-#        self.name = None # Фио
-#        self.age = None 
-#        self.sex = None
-#        self.university = None
-#        self.facility = None
-#        self.diastances = []
-#user_dict = {}
-#
-#class Team:
-#    def __init__(self, major_id):
-#        self.tg_id_major = major_id #tg_id регистрирующего команду
-#        self.name = None
-#        self.distance = None
-#        self.slot_num = None
-#        self.member_id = []
-#        self.member_id.append(major_id)
-#    def __init__(self, user: User, distance): # команда на личную дистанцию
-#        self.tg_id_major = user.tg_id 
-#        self.name = user.name
-#        self.distance = distance
-#        self.slot_num = None
-#        self.member_id = []
-#        self.member_id.append(user.tg_id)
-#team_dict = {}
-
-
 class DistanceResults:
 	def __init__(self, name):
 		self.name = name
@@ -455,20 +415,22 @@ class DistanceResults:
 #dist_dict = {}
 #dist_print_pattern = []
 
-class Containers:
-	time_table_dict = {}
-	
-	COMPLETE_CHOOSING = 'Всё'
-	
-	dist_personal_dict = {}
-	dist_personal_keyboard = []
-	dist_group_dict = {}
-	dist_group_keyboard = []
-	
-	users = None
 
-	api_token = None
-	admin_chat_id = None
+
+#class Containers:
+time_table_dict = {}
+
+COMPLETE_CHOOSING = 'Всё'
+
+dist_personal_dict = {}
+dist_personal_keyboard = []
+dist_group_dict = {}
+dist_group_keyboard = []
+
+users = None
+
+api_token = None
+admin_chat_id = None
 	
 	
 
@@ -489,6 +451,19 @@ class Loader:
 
 	# Загрузка всего из conf файлов
 	def load(self):
+		# Объявляем global, а то эта собака считает, что переменные локальные.
+		global time_table_dict
+		
+		global dist_personal_dict
+		global dist_personal_keyboard
+		global dist_group_dict
+		global dist_group_keyboard
+		
+		global users
+		
+		global api_token
+		global admin_chat_id
+
 
 		# Загрузка парсеров
 		self.sucere_pars = Parser()
@@ -500,9 +475,8 @@ class Loader:
 
 		##############################################################
 		#Загрузка секретной информации
-		
-		Containers.api_token = self.sucere_pars.at('Token')
-		Containers.admin_chat_id = self.sucere_pars.at('admin_chat_id')
+		api_token = self.sucere_pars.at('Token')
+		admin_chat_id = self.sucere_pars.at('admin_chat_id')
 
 		# Служебные переменные
 		i = 0
@@ -511,7 +485,7 @@ class Loader:
 		# Обработка информации по личным дистанциям
 		for p_dist in self.info_pars.at(Loader.pers_dist_group_name):
 			name = self.info_pars.at(Loader.pers_dist_group_name)[p_dist]
-			Containers.dist_personal_dict[name] = DistanceResults(name)
+			dist_personal_dict[name] = DistanceResults(name)
 			Users.list_of_params.append(name)
 
 			dist_params = self.info_pars.at(p_dist) 
@@ -522,29 +496,29 @@ class Loader:
 			passing_time = int(dist_params[Loader.passing_time_str][0:2]) * 60 + int(dist_params[Loader.passing_time_str][3:5])
 			
 			#Генерим пустой стартовый протокол.
-			Containers.time_table_dict[name] = TimeTable(name, 
-													open_time= open_time,
-													close_time= close_time,
-													interval= interval,
-													passing_time= passing_time)
+			time_table_dict[name] = TimeTable(name, 
+												open_time= open_time,
+												close_time= close_time,
+												interval= interval,
+												passing_time= passing_time)
 			#Генерим клавиатуру
 			if i == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
-				Containers.dist_personal_keyboard.append(row)
+				dist_personal_keyboard.append(row)
 				row = []
 				i -= Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST
 			i += 1
 			row.append(name)
 		
 		# Заканчиваем генерить клавиатуру
-		Containers.dist_personal_keyboard.append(row)
-		Containers.dist_personal_keyboard.append([ Containers.COMPLETE_CHOOSING])
+		dist_personal_keyboard.append(row)
+		dist_personal_keyboard.append([ COMPLETE_CHOOSING])
 		row = []
 		i = 0
 
 		# Обработка информации по групповым дистанциям
 		for g_dist in self.info_pars.at(Loader.group_dist_group_name):
 			name = self.info_pars.at(Loader.group_dist_group_name)[g_dist]
-			Containers.dist_group_dict[name] = DistanceResults(name)
+			dist_group_dict[name] = DistanceResults(name)
 
 			dist_params = self.info_pars.at(g_dist) 
 
@@ -554,25 +528,25 @@ class Loader:
 			passing_time = int(dist_params[Loader.passing_time_str][0:2]) * 60 + int(dist_params[Loader.passing_time_str][3:5])
 			
 			#Генерим пустой стартовый протокол.
-			Containers.time_table_dict[name] = TimeTable(name, 
+			time_table_dict[name] = TimeTable(name, 
 												open_time= open_time,
 												close_time= close_time,
 												interval= interval,
 												passing_time= passing_time)
 			#Генерим клавиатуру
 			if i == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
-				Containers.dist_group_keyboard.append(row)
+				dist_group_keyboard.append(row)
 				row = []
 				i -= Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST
 			i += 1
 			row.append(name)
 
 		# Заканчиваем генерить клавиатуру
-		Containers.dist_group_keyboard.append(row)
-		Containers.dist_group_keyboard.append([Containers.COMPLETE_CHOOSING])
+		dist_group_keyboard.append(row)
+		dist_group_keyboard.append([COMPLETE_CHOOSING])
 
 		##############################################################
-		Containers.users = Users()
+		users = Users()
 
 
 
