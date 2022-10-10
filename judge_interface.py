@@ -41,7 +41,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 #################start_эту часть надо пересмотреть\переписать######
 #judge registration steps:
-#AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
 DISTANCE, STAGE = range(2)
 
 # Handle '/start' and '/help'
@@ -90,19 +89,20 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 		processing_exceptions(update.message, ex)
 	return ConversationHandler.END
 #################end_эту часть надо пересмотреть\переписать######
-admins = ['1728']
-async def notify(message):
-    command_sender = message.from_user.id
-    if command_sender in admins:
-        with open('judges_id.txt') as ids:
-            for line in ids:
-                user_id = int(line.strip("\n"))
-                try:
-                    bot.send_message(user_id,  f'уведомление от {command_sender}')
-                except Exception as e:
-                    bot.send_message(command_sender, f'ошибка отправки сообщения юзеру - {user_id}')
-    else:
-        bot.send_message(command_sender, f'у вас нет прав для запуска команды')
+admins = [397217880]
+async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+	command_sender = update.message.from_user.id
+	if command_sender in admins:
+		with open('judges_id.txt') as ids:
+			for line in ids:
+				user_id = int(line.strip("\n"))
+				try:
+					bot.send_message(user_id, 'kuku')
+					#bot.send_message(user_id,  f'уведомление от {command_sender}')
+				except Exception as e:
+					bot.send_message(command_sender, f'ошибка отправки сообщения юзеру - {user_id}')
+	else:
+		bot.send_message(command_sender, f'у вас нет прав для запуска команды')
 async def judge_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Starts the conversation and asks the user about their name."""
 	await update.message.reply_text(
@@ -112,72 +112,63 @@ async def judge_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	)
 	return DISTANCE
 
-async def judge_reg_distance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-	"""Starts the conversation and asks the user about their name."""
-	await update.message.reply_text(
-	   "Какой этап вы судите",
-	)
-	reply_keyboard = [["Горная", "Вело", "Пешеходная"],
-					  ["Охота на лис", "Водная"],
-					  ["всё"]]
-	return STAGE
-async def user_reg_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-	"""Stores the selected name and asks for a age."""
-	user = update.message.from_user
-	logger.info("Name of %s: %s", user.first_name, update.message.text)
-	await update.message.reply_text(
-		"Приятно познакомится! "
-		"Сколько вам лет?."
-	)
-
-	return GENDER
-
-
-# Надо переделать!!!
-async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-	"""Stores the selected university and asks for a facility or for distances."""
-	user = update.message.from_user
-	logger.info("fasil of %s: %s", user.first_name, update.message.text)
-	is_msu = re.search("МГУ", update.message.text)
-	if is_msu != None:
-		await update.message.reply_text(
-			"На каком факультете вы учитесь? "
-		)
-		return DISTANCES
-	else:
-		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
-						  ["Охота на лис", "Водная"],
-						  ["всё"]]
-		await update.message.reply_text(
-			"На каких дистанциях вы хотели бы участвовать?",
-			reply_markup=ReplyKeyboardMarkup(
-			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
-		),
-		)
-		return DISTANCES
-	
-async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-	user = update.message.from_user
-	if update.message.text == "всё":
-		await update.message.reply_text(
-			"Спасибо!",
-			reply_markup=ReplyKeyboardRemove(),
-			)
-		print(logger)
-		return ConversationHandler.END
-	else:
-		logger.info("Dist of %s: %s", user.first_name, update.message.text)
-
-		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
-						  ["Охота на лис", "Водная"],
-						  ["Всё"]]
-		await update.message.reply_text(
-			"На каких дистанциях вы хотели бы участвовать?",
-			reply_markup=ReplyKeyboardMarkup(
-			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
-		),
-		)
-		return DISTANCES
+# async def user_reg_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# 	"""Stores the selected name and asks for a age."""
+# 	user = update.message.from_user
+# 	logger.info("Name of %s: %s", user.first_name, update.message.text)
+# 	await update.message.reply_text(
+# 		"Приятно познакомится! "
+# 		"Сколько вам лет?."
+# 	)
+#
+# 	return GENDER
+#
+#
+# # Надо переделать!!!
+# async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# 	"""Stores the selected university and asks for a facility or for distances."""
+# 	user = update.message.from_user
+# 	logger.info("fasil of %s: %s", user.first_name, update.message.text)
+# 	is_msu = re.search("МГУ", update.message.text)
+# 	if is_msu != None:
+# 		await update.message.reply_text(
+# 			"На каком факультете вы учитесь? "
+# 		)
+# 		return DISTANCES
+# 	else:
+# 		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
+# 						  ["Охота на лис", "Водная"],
+# 						  ["всё"]]
+# 		await update.message.reply_text(
+# 			"На каких дистанциях вы хотели бы участвовать?",
+# 			reply_markup=ReplyKeyboardMarkup(
+# 			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
+# 		),
+# 		)
+# 		return DISTANCES
+#
+# async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# 	user = update.message.from_user
+# 	if update.message.text == "всё":
+# 		await update.message.reply_text(
+# 			"Спасибо!",
+# 			reply_markup=ReplyKeyboardRemove(),
+# 			)
+# 		print(logger)
+# 		return ConversationHandler.END
+# 	else:
+# 		logger.info("Dist of %s: %s", user.first_name, update.message.text)
+#
+# 		reply_keyboard = [["Горная", "Вело", "Пешеходная"],
+# 						  ["Охота на лис", "Водная"],
+# 						  ["Всё"]]
+# 		await update.message.reply_text(
+# 			"На каких дистанциях вы хотели бы участвовать?",
+# 			reply_markup=ReplyKeyboardMarkup(
+# 			reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
+# 		),
+# 		)
+# 		return DISTANCES
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Cancels and ends the conversation."""
