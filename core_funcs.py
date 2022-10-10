@@ -248,7 +248,7 @@ class Judges:
 		self.filename_dict = None
 		self.filename_aut = None
 		self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
-		self.judge_dict.set_index('Tg_id')
+		self.judge_dict = self.judge_dict.set_index('Tg_id')
 		self.judge_autentification = {} # зашел ли судья с этим паролем или нет # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
 		#aut_time_delay = [0, 10, 20] # в каждом окне по 3 попытки
 	
@@ -339,7 +339,7 @@ class Users:
 	def __init__(self):
 		self.filename = None
 		self.user_dict = pd.DataFrame(columns = Users.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
-		self.user_dict.set_index('Tg_id')
+		self.user_dict = self.user_dict.set_index('Tg_id')
 
 	def write_users(self):
 		if self.filename == None:
@@ -361,17 +361,19 @@ class Users:
 			raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
 
 class Teams:
-	def __init__(self, major_id):
+	def __init__(self):
 		list_of_params = ['Tg_id_major', 
 						  'Name', 
 						  'Distance', 
 						  'Slot_num', 
-						  'Member_id', 
-						  'Facility', 
-						  'Distances']
+						  'Member_id_1', 
+						  'Member_id_2',
+						  'Member_id_3',
+						  'Member_id_4',
+						  'Member_comfurm_num']
 		self.filename = None
 		self.team_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
-		self.team_dict.set_index(['Tg_id_major', 'Distance'])
+		self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
 	def write_teams(self):
 		self.team_dict.to_excel(self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
@@ -422,17 +424,24 @@ time_table_dict = {}
 
 COMPLETE_CHOOSING = 'Всё'
 
+TEAM_NAME_LENTH = 50
+
 dist_personal_dict = {}
 dist_personal_keyboard = []
+re_str_pesr_disr = None
+
 dist_group_dict = {}
 dist_group_keyboard = []
+dist_group_team_members_count = {}
+re_str_group_disr = None
+
 
 users = None
+judges = None
+teams = None
 
 api_token = None
 admin_chat_id = None
-	
-	
 
 class Loader:
 	pers_dist_group_name = 'personal_distances'
@@ -441,6 +450,7 @@ class Loader:
 	close_time_str = "close_time" # часы:минуты
 	interval_str = "interval" # минуты:секунды
 	passing_time_str = "passing_time" # минуты:секунды
+	team_members_count = "team_members"
 
 	NUM_OF_KEYS_IN_ROW_FOR_DIST = 3
 
@@ -456,10 +466,17 @@ class Loader:
 		
 		global dist_personal_dict
 		global dist_personal_keyboard
+		global re_str_pesr_disr
+
 		global dist_group_dict
 		global dist_group_keyboard
-		
+		global dist_group_team_members_count
+		global re_str_group_disr 
+
+
 		global users
+		global judges
+		global teams
 		
 		global api_token
 		global admin_chat_id
@@ -476,17 +493,25 @@ class Loader:
 		##############################################################
 		#Загрузка секретной информации
 		api_token = self.sucere_pars.at('Token')
-		admin_chat_id = self.sucere_pars.at('admin_chat_id')
+		# делаем из словаря список
+		admin_chat_id = [self.sucere_pars.at('admin_chat_id')[admin] for admin in self.sucere_pars.at('admin_chat_id') ]
+
+		##############################################################
+		re_str_pesr_disr = "^("
+		re_str_group_disr = "^("
 
 		# Служебные переменные
-		i = 0
 		row = []
-
 		# Обработка информации по личным дистанциям
 		for p_dist in self.info_pars.at(Loader.pers_dist_group_name):
 			name = self.info_pars.at(Loader.pers_dist_group_name)[p_dist]
 			dist_personal_dict[name] = DistanceResults(name)
 			Users.list_of_params.append(name)
+
+			# Создаём регулярку для распознования одного из названий дистанции
+			if len(re_str_pesr_disr) > 2:
+				re_str_pesr_disr += "|"
+			re_str_pesr_disr += name
 
 			dist_params = self.info_pars.at(p_dist) 
 
@@ -502,25 +527,34 @@ class Loader:
 												interval= interval,
 												passing_time= passing_time)
 			#Генерим клавиатуру
-			if i == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
+			if len(row) == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
 				dist_personal_keyboard.append(row)
 				row = []
-				i -= Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST
-			i += 1
 			row.append(name)
 		
+		# Заканчиваем создание регулярки для распознования одного из названий дистанции
+		re_str_pesr_disr += ")$"
+
 		# Заканчиваем генерить клавиатуру
 		dist_personal_keyboard.append(row)
 		dist_personal_keyboard.append([ COMPLETE_CHOOSING])
 		row = []
-		i = 0
 
 		# Обработка информации по групповым дистанциям
 		for g_dist in self.info_pars.at(Loader.group_dist_group_name):
 			name = self.info_pars.at(Loader.group_dist_group_name)[g_dist]
+
 			dist_group_dict[name] = DistanceResults(name)
+			Users.list_of_params.append(name)
+
+			# Создаём регулярку для распознования одного из названий дистанции
+			if len(re_str_group_disr) > 2:
+				re_str_group_disr += "|"
+			re_str_group_disr += name
 
 			dist_params = self.info_pars.at(g_dist) 
+
+			dist_group_team_members_count[name] = dist_params[Loader.team_members_count]
 
 			open_time = int(dist_params[Loader.open_time_str][0:2]) * 3600 + int(dist_params[Loader.open_time_str][3:5]) * 60
 			close_time = int(dist_params[Loader.close_time_str][0:2]) * 3600 + int(dist_params[Loader.close_time_str][3:5]) * 60
@@ -534,12 +568,13 @@ class Loader:
 												interval= interval,
 												passing_time= passing_time)
 			#Генерим клавиатуру
-			if i == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
+			if len(row) == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
 				dist_group_keyboard.append(row)
 				row = []
-				i -= Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST
-			i += 1
 			row.append(name)
+
+		# Заканчиваем создание регулярки для распознования одного из названий дистанции
+		re_str_group_disr += ")$"
 
 		# Заканчиваем генерить клавиатуру
 		dist_group_keyboard.append(row)
@@ -547,7 +582,5 @@ class Loader:
 
 		##############################################################
 		users = Users()
-
-
-
-
+		judges = Judges()
+		teams = Teams()
