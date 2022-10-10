@@ -13,6 +13,8 @@ from telegram.ext import (
 )
 
 import user_interface
+import judge_interface
+
 import core_funcs as cf
 
 
@@ -21,6 +23,8 @@ def main() -> None:
 	""" Configure interface."""
 	""" Load conf files."""
 	run_file = "run.ini"
+	#API_TOKEN =  secure_pars.at('Token')
+	#cf.admin_chat_id = secure_pars.at('admin_chat_id')
 	loader = cf.Loader(run_file)
 
 	""" Load data."""
@@ -55,6 +59,15 @@ def main() -> None:
 		},
 		fallbacks=[CommandHandler("cancel", user_interface.cancel),
 			 MessageHandler(filters.Regex("^(" + cf.COMPLETE_CHOOSING + ")$"), user_interface.user_reg_distances)],
+	)
+	# /judge Handler
+	judge_interface.notify
+	conv_handler = ConversationHandler(
+		entry_points=[CommandHandler("start", judge_interface.judge_reg_start)],
+		states={
+			judge_interface.DISTANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, judge_interface.judge_reg_distance)]
+		},
+		fallbacks=[CommandHandler("cancel", judge_interface.cancel)],
 	)
 
 	team_reg_handler = ConversationHandler(

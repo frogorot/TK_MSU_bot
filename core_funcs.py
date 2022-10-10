@@ -1,8 +1,7 @@
 import random
 import toml
 import pandas as pd
-#import pathlib 
-import time
+import pathlib 
 
 #SECURE_DIRECTORY_NAME = 'secure_info'
 #INFO_DIRECTORY_NAME = 'load_info'
@@ -31,7 +30,7 @@ class Parser:
 
 
 class Slot:
-	def __init__(self, order_number: int, start: int, interval: int, is_free):
+	def __init__(self, order_number, start: int, interval: int, is_free):
 		self.order_number = order_number
 		self.start = start
 		self.interval = interval
@@ -64,11 +63,11 @@ def gene_table(open_time: int, close_time: int, interval: int):
 		i += interval
 # open_time - время открытия дистанции, close_time - время закрытия дистанции
 def from_start_time_to_num_default(current_start_time, open_time, interval): #конверитирует время старта слота в его номер
-	return int((current_start_time - open_time) / interval)
+	return (current_start_time - open_time) / interval;
 
 class TimeTable:
 	# open_time - время открытия дистанции, close_time - время закрытия дистанции
-	def from_start_time_to_num_default(self, current_start_time) -> int: #конверитирует время старта слота в его номер
+	def from_start_time_to_num_default(self, current_start_time): #конверитирует время старта слота в его номер
 		return (current_start_time - self.open_time) / self.interval;
 
 	def __init__(self, distance: str, open_time: int, close_time: int, interval: int, passing_time: int):
@@ -124,20 +123,19 @@ class TimeTable:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
 				return (0,0,0)
 
-		return (cur_slot.order_number, cur_slot.start, cur_slot.start + self.dist_passing_time)
+		return (cur_slot.order_num, cur_slot.start, cur_slot.start + self.dist_passing_time)
 
-	def booking_slot(self, rand: bool, list_of_unavailable: list = []) -> (int, int, int):
-		cur_slot = None
+	def booking_slot(self, rand: bool, list_of_unavailable: list = None) -> (int, int, int):
+		cur_slot;
 		if rand:
 			rand_pos = random.randint(0, len(self.table)-1)
-
-			if self.table[rand_pos].is_free and is_seg_nin_seg_list( self.table[rand_pos].start, self.dist_passing_time, list_of_unavailable):
+			if self.table[rand_pos].is_free:
 				cur_slot = self.table[rand_pos]
 				#return (rand_pos, self.table[rand_pos].start, self.table[rand_pos].start + self.dist_passing_time)
 			
 			else:
 				awaleble_free_slots = []
-				if list_of_unavailable == []:
+				if list_of_unavailable == None:
 					awaleble_free_slots = self.table_of_free.keys() 
 				else:
 					awaleble_free_slots = [slot_num for slot_num in self.table_of_free 
@@ -152,25 +150,61 @@ class TimeTable:
 						min_distance = abs(slot_num - rand_pos)
 				else:
 					cur_slot = self.table_of_free[nearest_slot_num]
-		elif list_of_unavailable == []:
+					#return (nearest_slot_num, self.table_of_free[nearest_slot_num], self.table_of_free[nearest_slot_num] + self.dist_passing_time)
+
+			#for slot_num in self.table_of_free: # ищем первое свободное после случайного
+			#	if slot_num >= 
+			#	cur_slot = self.table_of_free[slot_num]
+			#	if cur_slot.is_free:
+			#		cur_slot.is_free = False
+			#		break
+			#		#return (cur_slot.start, cur_slot.start + self.dist_passing_time)
+			#else: 
+			#	down_free_slots;
+			#	if list_of_unavailable == None:
+			#		down_free_slots = [slot_num for slot_num in self.table_of_free 
+			#			if slot_num >= rand_pos]
+			#	else:
+			#		down_free_slots = [slot_num for slot_num in self.table_of_free 
+			#			if slot_num >= rand_pos and 
+			#				is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable) ]
+			#
+			#
+			#	for slot_num in down_free_slots: # Если после все заняты, ищем до.
+			#		cur_slot = self.table_of_free[slot_num]
+			#		if cur_slot.is_free:
+			#			cur_slot.is_free = False
+			#			pass
+			#			#return (cur_slot.start, cur_slot.start + self.dist_passing_time)
+			#	else:
+			#		raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
+			#		return (0,0,0)
+		#else:
+			#list_of_interest;
+			#if list_of_unavailable == None:
+			#	list_of_interest = self.table_of_free.keys()
+			#else:
+			#	list_of_interest = [slot_num for slot_num in self.table_of_free 
+			#			if is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable)]
+
+		elif list_of_unavailable == None:
 			if self.table_of_free != None:
 				cur_slot = self.table_of_free[0]
 				#return (self.table_of_free[0].order_number, self.table_of_free[0].start, self.table_of_free[0] + self.dist_passing_time)
 			else:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
-				return (-1,0,0)
+				return (0,0,0)
 		else:
-			for slot_num in self.table_of_free: 
+			for slot_num in self.table_of_free: # Можно оптимизировать, но лень - проверяем всю табличку(а можем только свободные)
 				if is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable):
 					cur_slot = self.table_of_free[slot_num]
-					break
 					#return (self.table_of_free[slot_num].order_number, self.table_of_free[slot_num].start, self.table_of_free[slot_num] + self.dist_passing_time)
 			else:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
-				return (-1,0,0)
+				return (0,0,0)
 		
 		cur_slot.is_free = False
-		return (cur_slot.order_number, cur_slot.start, cur_slot.start + self.dist_passing_time)
+		return (cur_slot.order_num, cur_slot.start, cur_slot.start + self.dist_passing_time)
 
 
 	def free_slots(self):
@@ -342,8 +376,6 @@ class Users:
 		self.user_dict = self.user_dict.set_index('Tg_id')
 
 	def write_users(self):
-		if self.filename == None:
-			self.filename = "Users"
 		self.user_dict.to_excel(self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
 
 	def load_users(self, filename: str = None):
@@ -393,6 +425,46 @@ class Teams:
 			self.team_dict.set_index(['Tg_id_major', 'Distance'])
 			raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
 
+#class Judge:
+#    MAJOR, LINEAR = range(2)
+#        
+#    def __init__(self, tg_id):
+#        self.tg_id = tg_id # realy is a chat_id
+#        self.name = None # Фио
+#        self.status = LINEAR
+#        self.diastances = [] 
+#        self.stage = [] # Этапы дистанций
+#
+#
+#class User:
+#    def __init__(self, tg_id):
+#        self.tg_id = tg_id # realy is a chat_id
+#        self.name = None # Фио
+#        self.age = None 
+#        self.sex = None
+#        self.university = None
+#        self.facility = None
+#        self.diastances = []
+#user_dict = {}
+#
+#class Team:
+#    def __init__(self, major_id):
+#        self.tg_id_major = major_id #tg_id регистрирующего команду
+#        self.name = None
+#        self.distance = None
+#        self.slot_num = None
+#        self.member_id = []
+#        self.member_id.append(major_id)
+#    def __init__(self, user: User, distance): # команда на личную дистанцию
+#        self.tg_id_major = user.tg_id 
+#        self.name = user.name
+#        self.distance = distance
+#        self.slot_num = None
+#        self.member_id = []
+#        self.member_id.append(user.tg_id)
+#team_dict = {}
+
+
 class DistanceResults:
 	def __init__(self, name):
 		self.name = name
@@ -417,9 +489,6 @@ class DistanceResults:
 #dist_dict = {}
 #dist_print_pattern = []
 
-
-
-#class Containers:
 time_table_dict = {}
 
 COMPLETE_CHOOSING = 'Всё'
