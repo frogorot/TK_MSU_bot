@@ -1,6 +1,4 @@
 
-admin_chat_id = {}
-
 #from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
 	Application,
@@ -13,8 +11,6 @@ from telegram.ext import (
 )
 
 import user_interface
-import judge_interface
-
 import core_funcs as cf
 
 
@@ -23,7 +19,7 @@ def main() -> None:
 	""" Configure interface."""
 	""" Load conf files."""
 	run_file = "run.ini"
-	#cf.admin_chat_id = secure_pars.at('admin_chat_id')
+
 	loader = cf.Loader(run_file)
 
 	""" Load data."""
