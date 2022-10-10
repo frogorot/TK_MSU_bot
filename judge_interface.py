@@ -59,8 +59,8 @@ def send_welcome(message):
 
 def processing_exceptions(message, Exception):
 	bot.reply_to(message, 'Что-то пошло не так( Попробуйте ещё раз!')
-	if not admin_chat_id == None:
-		bot.send_message(admin_chat_id, e.args)
+	if not cf.admin_chat_id == None:
+		bot.send_message(cf.admin_chat_id, e.args)
 
 # Handle '/ask_admin'
 #@bot.message_handler(commands=['ask_admin'])
@@ -89,20 +89,28 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 		processing_exceptions(update.message, ex)
 	return ConversationHandler.END
 #################end_эту часть надо пересмотреть\переписать######
-admins = [397217880]
 async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-	command_sender = update.message.from_user.id
-	if command_sender in admins:
-		with open('judges_id.txt') as ids:
-			for line in ids:
-				user_id = int(line.strip("\n"))
-				try:
-					bot.send_message(user_id, 'kuku')
-					#bot.send_message(user_id,  f'уведомление от {command_sender}')
-				except Exception as e:
-					bot.send_message(command_sender, f'ошибка отправки сообщения юзеру - {user_id}')
-	else:
-		bot.send_message(command_sender, f'у вас нет прав для запуска команды')
+	#new_start
+	for judge in cf.Judges.judge_dict:
+		try:
+			Context.bot.send_message(judge, 'Привет! Я бот горного Турклуба МГУ. Я совсем маленький, но быстро учусь! Мои команды:'
+								'/start - начать работу со мной. Меня нужно использовать для записи времени старта\финиша участников и команд')
+		# bot.send_message(user_id,  f'уведомление от {command_sender}')
+		except Exception as e:
+			Context.bot.send_message(cf.admin_chat_id, f'ошибка отправки сообщения юзеру - {judge}')
+	#new_close
+	print('lala')
+	# with open('judges_id.txt') as ids:
+	# 	for line in ids:
+	# 		user_id = line.strip("\n")
+	# 		print('la')
+	# 		try:
+	# 			await context.bot.send_message(user_id, 'kuku')
+	# 			#bot.send_message(user_id,  f'уведомление от {command_sender}')
+	# 		except Exception as e:
+	# 			print(e.args)
+	# 			#await context.bot.send_message(cf.admin_chat_id, f'ошибка отправки сообщения юзеру - {user_id}')
+
 async def judge_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Starts the conversation and asks the user about their name."""
 	await update.message.reply_text(
