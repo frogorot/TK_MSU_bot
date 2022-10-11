@@ -492,7 +492,7 @@ class Loader:
 
 	# Загрузка всего из conf файлов
 	def load(self):
-		# Объявляем global, а то эта собака считает, что переменные локальные.
+		# Объявляем global, а то эта собака считает, что переменные локальные. #"Я не собака, я питон!"
 		global secure_directory
 		global info_directory
 		
@@ -505,7 +505,14 @@ class Loader:
 		global dist_group_dict
 		global dist_group_keyboard
 		global dist_group_team_members_count
-		global re_str_group_disr 
+		global re_str_group_disr
+
+		global stages_moun_sim_keyboard
+		global stages_moun_com_keyboard
+		global stages_fox_hunt_keyboard
+		global stages_advent_keyboard
+		global stages_wat_cat_keyboard
+		global stages_bike_keyboard
 
 
 		global users
@@ -573,6 +580,10 @@ class Loader:
 		dist_personal_keyboard.append(row)
 		dist_personal_keyboard.append([ COMPLETE_CHOOSING])
 		row = []
+
+		#Начинаем генерить клавиатуру для этапов
+		#решила, что лучше сделать быстрее, чем красивее с регулярками
+
 
 		# Обработка информации по групповым дистанциям
 		for g_dist in self.info_pars.at(Loader.group_dist_group_name):

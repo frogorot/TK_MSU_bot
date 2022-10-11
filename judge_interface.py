@@ -99,7 +99,7 @@ async def judge_reg_distance(update: Update, context: ContextTypes.DEFAULT_TYPE)
 	for judge in a:
 	#for judge in cf.judges.judge_dict:
 		try:
-			 await context.bot.send_message(judge, 'Привет! Я бот горного Турклуба МГУ. Я совсем маленький, но быстро учусь!\n'
+			await context.bot.send_message(judge, 'Привет! Я бот горного Турклуба МГУ. Я совсем маленький, но быстро учусь!\n'
 			 									  'Меня нужно использовать для записи времени старта и финиша участников и команд.\n'
 			 							   "Отправьте /cancel , чтобы прекратить общение.\n"
 												   "Какую дистанцию вы судите?\n", reply_markup=ReplyKeyboardMarkup(
