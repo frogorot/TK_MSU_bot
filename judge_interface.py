@@ -39,12 +39,15 @@ logging.basicConfig(
 	filename="logs\py_log"+ datetime.today().strftime("-%m.%d.%Y,%H-%M-%S") + ".log",filemode="w"
 )
 logger = logging.getLogger(__name__)
+
+#тестовая часть, должна быть в core_funcs
+#cf.judges.load_judge_dict('judges_dict_TEST')
 #################start_эту часть надо пересмотреть\переписать######
 #judge registration steps:
 DISTANCE, STAGE = range(2)
 
+
 # Handle '/start' and '/help'
-# Дописать!!
 #@bot.message_handler(commands=['help', 'start'])
 def send_welcome(message):
 	msg = bot.reply_to(message, """\
@@ -89,36 +92,50 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 		processing_exceptions(update.message, ex)
 	return ConversationHandler.END
 #################end_эту часть надо пересмотреть\переписать######
-async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+#async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+a = [397217880]  #[393132620]
+async def judge_reg_distance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	#new_start
-	for judge in cf.Judges.judge_dict:
+	for judge in a:
+	#for judge in cf.judges.judge_dict:
 		try:
-			Context.bot.send_message(judge, 'Привет! Я бот горного Турклуба МГУ. Я совсем маленький, но быстро учусь! Мои команды:'
-								'/start - начать работу со мной. Меня нужно использовать для записи времени старта\финиша участников и команд')
-		# bot.send_message(user_id,  f'уведомление от {command_sender}')
+			 await context.bot.send_message(judge, 'Привет! Я бот горного Турклуба МГУ. Я совсем маленький, но быстро учусь!\n'
+			 									  'Меня нужно использовать для записи времени старта и финиша участников и команд.\n'
+			 							   "Отправьте /cancel , чтобы прекратить общение.\n"
+												   "Какую дистанцию вы судите?\n", reply_markup=ReplyKeyboardMarkup(
+					cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберите дистанции"
+				))
+			# await update.message.reply_text("Какую дистанцию вы судите?",
+			# 	reply_markup=ReplyKeyboardMarkup(
+			# 		cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберите дистанции"
+			# 	),
+			# )
 		except Exception as e:
-			Context.bot.send_message(cf.admin_chat_id, f'ошибка отправки сообщения юзеру - {judge}')
+			print(e.args)
+			context.bot.send_message((cf.admin_chat_id, f'ошибка отправки сообщения юзеру - {judge}'))
 	#new_close
-	print('lala')
-	# with open('judges_id.txt') as ids:
-	# 	for line in ids:
-	# 		user_id = line.strip("\n")
-	# 		print('la')
-	# 		try:
-	# 			await context.bot.send_message(user_id, 'kuku')
-	# 			#bot.send_message(user_id,  f'уведомление от {command_sender}')
-	# 		except Exception as e:
-	# 			print(e.args)
-	# 			#await context.bot.send_message(cf.admin_chat_id, f'ошибка отправки сообщения юзеру - {user_id}')
+	return DISTANCE
 
-async def judge_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# async def judge_reg_distance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# 	"""Starts the conversation and asks the user about their name."""
+# 	await update.message.reply_text(
+# 	   "Ура, рад вас видеть!"
+# 	   "Отправьте /cancel , чтобы прекратить общение.\n\n"
+# 	   "Какую дистанцию вы судите?",
+# 		reply_markup=ReplyKeyboardMarkup(
+# 			cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберите дистанции"
+# 	),
+# 	)
+# 	return DISTANCE
+
+
+async def judge_reg_stage(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Starts the conversation and asks the user about their name."""
 	await update.message.reply_text(
-	   "Ура, рад вас видеть!"
-	   "Отправьте /cancel , чтобы прекратить общение.\n\n"
-	   "Какую дистанцию вы судите?",
+	   "Какие этапы вы судите?"
 	)
-	return DISTANCE
+	return STAGE
+
 
 # async def user_reg_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # 	"""Stores the selected name and asks for a age."""
