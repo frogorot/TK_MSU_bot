@@ -1,5 +1,6 @@
 import logging
 import time
+import pandas as pd
 
 from datetime import datetime 
 from datetime import timedelta 
@@ -21,7 +22,7 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
 		f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
 	)
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
 	Application,
 	CommandHandler,
@@ -92,11 +93,12 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 		print("Unavalable")
 	# forward_message Не работает
 
-	await update.message.forward(chat_id= cf.admin_chat_id, 
-				   #from_chat_id= update.message.chat.id, 
-				   disable_notification = True 
-				   #message_id= update.message.message_id
-				   )
+	for admin_chat_id in cf.admin_chat_id:
+		await update.message.forward(chat_id= admin_chat_id, 
+					   #from_chat_id= update.message.chat.id, 
+					   disable_notification = True 
+					   #message_id= update.message.message_id
+					   )
 	return ConversationHandler.END
 
 ###########################################
@@ -111,11 +113,11 @@ async def user_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 	for col in cf.users.user_dict.columns:
 		cf.users.user_dict.loc[user_id, col] = None
 	cf.users.user_dict.loc[user_id, 'Tg_id'] = user_id
-	cf.users.user_dict.loc[user_id, cf.users.RES_TIME] = []
+	cf.users.user_dict.at[user_id, cf.users.RES_TIME] = []
 
 	await update.message.reply_text(
-	   "Ура, давайте знакомится!\n"
-	   "Ваш id:  " + str(update.message.from_user.id) + ". Он может понадобится для общения со мной.\n"
+	   "Ура, давайте знакомится!\n\n"
+	   "Ваш id:  " + str(update.message.from_user.id) + ".\nОн может понадобится для общения со мной.\n\n"
 	   "Отправьте /cancel чтобы прекратить общение.\n\n"
 	   "Как вас зовут? Пожалуйста, напишите полные имя и фамилию.",
 	)
@@ -150,7 +152,7 @@ async def user_reg_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			reply_keyboard = [["Мальчик", "Девочка"]]
 	
 			await update.message.reply_text(
-				"Пожалуйста, выберете ваш пол.",
+				"Пожалуйста, выберите ваш пол.",
 				reply_markup=ReplyKeyboardMarkup(
 					reply_keyboard, one_time_keyboard=True, input_field_placeholder="Мальчик или Девочка?"
 				),
@@ -196,7 +198,7 @@ async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 		await update.message.reply_text(
 			"На каких дистанциях вы хотели бы участвовать?",
 			reply_markup=ReplyKeyboardMarkup(
-			cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберете дистанции"
+			cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="выберите дистанции"
 		),
 		)
 	
@@ -258,7 +260,7 @@ async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE)
 	await update.message.reply_text(
 		"На каких дистанциях вы хотели бы участвовать?",
 		reply_markup=ReplyKeyboardMarkup(
-		cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберете дистанции"
+		cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="выберите дистанции"
 	),
 	)
 	return DISTANCES
@@ -294,7 +296,7 @@ async def team_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 	   "Обязательно отправьте /cancel чтобы остановить регистрацию. Иначе я сломаюсь( \n\n"
 	   "На какую дистанцию вы регистрируете команду?",
 	   reply_markup=ReplyKeyboardMarkup(
-		cf.dist_group_keyboard, one_time_keyboard=True, input_field_placeholder="Выберете дистанции"
+		cf.dist_group_keyboard, one_time_keyboard=True, input_field_placeholder="выберите дистанции"
 	),
 	)
 	return DIST
@@ -305,8 +307,7 @@ async def team_reg_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 	user_id = update.message.from_user.id
 	dist = update.message.text
 	try:
-		print(cf.teams.team_dict.index)
-		cf.teams.team_dict.at[(user_id, dist), 'Tg_id_major'] = user_id
+		#cf.teams.team_dict.at[(user_id, dist), 'Tg_id_major'] = user_id
 		cf.teams.team_dict.at[(user_id, dist), 'Distance'] = dist
 	except Exception as e:
 		print(e.args)
@@ -317,10 +318,10 @@ async def team_reg_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 	return NAME
 
 #служебная функция для обнаружения названия дистанции
-async def find_dist_name(user_id) -> str:
+def find_dist_name(user_id) -> str:
 	dist_name = None
-	for try_dist_name in cf.dist_group_dict.keys:
-		if [user_id, try_dist_name] in cf.teasm.teams_dict.index:
+	for try_dist_name in cf.dist_group_dict.keys():
+		if pd.notna(cf.teams.team_dict.at[(user_id, try_dist_name), 'Distance']):
 			dist_name = try_dist_name
 			break
 	else:
@@ -332,7 +333,11 @@ async def team_reg_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 	"""Asks the user about team name."""
 
 	user_id = update.message.from_user.id
-	dist = find_dist_name(user_id)
+	try:
+		dist = find_dist_name(user_id)
+	except Exception as e:
+		print(e.args)
+	name = update.message.text
 
 	if len(name) > cf.TEAM_NAME_LENTH:
 		await update.message.reply_text(
@@ -350,10 +355,10 @@ async def team_reg_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 		return MEMBERS_ADD
 
 #служебная функция для обнаружения номера ещё пустого пользователя
-async def find_first_empty_member(user_id, dist_name) -> int:
+def find_first_empty_member(user_id, dist_name) -> int:
 	member_num = None
 	for num in range(1,4):
-		if cf.teasm.teams_dict.loc[[user_id, dist_name],'Member_id_' + str(num) ] == pd.non:
+		if pd.isna(cf.teams.team_dict.at[(user_id, dist_name),'Member_id_' + str(num) ]):
 			member_num = num
 			break
 	else:
@@ -364,12 +369,17 @@ async def find_first_empty_member(user_id, dist_name) -> int:
 async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Asks the user about team name."""
 
-	user_id = update.message.from_user.id
-	dist = find_dist_name(user_id)
-	new_member_id = update.message.text
+	major_id = update.message.from_user.id
+	dist = find_dist_name(major_id)
+	new_member_id = int(update.message.text)
 
 	# Проверка, есть ли такой id в зарегистрированных
-	if new_member_id not in cf.users.user_dict.index:
+	try:
+		pd.isna(cf.users.user_dict.at[new_member_id, 'Name'])
+	except Exception as e:
+		print(e.args)
+
+	if pd.isna(cf.users.user_dict.at[new_member_id, 'Name']):
 		await update.message.reply_text(
 			"Я не знаком с таким человеком( Он точно регистрировался у меня?\n"
 			"Если у вашего знакомого нет Телеграмм, то попросите главного судью любой дистанции - они вам помогут."
@@ -378,49 +388,60 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 	# Обработка id, если он найден
 	else:
-		new_member_num = find_first_empty_member(user_id, dist)
-		num_of_remaining_members = cf.dist_group_team_members_count[dist] - 1 - new_member_num
+		try:
+			new_member_num = find_first_empty_member(major_id, dist)
+			cf.teams.team_dict.loc[(major_id, dist), 'Member_id_' + str(new_member_num)] = new_member_id
+			num_of_remaining_members = cf.dist_group_team_members_count[dist] - 1 - new_member_num
+
+
+		except Exception as e:
+			print(e.args)
+
 
 		# Записали id всех участников
 		if num_of_remaining_members == 0:
 			await update.message.reply_text(
-			"Команда " + cf.teams.team_dict.loc[(user_id, dist), 'Name'] + " зарегистрирована.\n"
+			"Команда " + cf.teams.team_dict.at[(major_id, dist), 'Name'] + " зарегистрирована.\n"
 			"Участникам отправлены запросы на подтверждение. Как только я получу все подтверждения, сразу извещу вас."
 			"Время старта пришлю тогда же"
 			)
 			# Отправляем запросы на подтверждение
-			major_name = cf.users.user_dict.loc[major_id, 'Name']
-			members_list = None
-			for member_num in range(1, cf.dist_group_team_members_count[dist]):
-				member_id = cf.teams.team_dict.loc[(user_id, dist), 'Member_id_' + member_num]
-				member_name = cf.users.user_dict.loc[member_id, 'Name']
-				members_list += member_name + "\n"
-			members_list = major_name + "  - Зарегистрировал команду\n" + members_list
+			major_name = cf.users.user_dict.at[major_id, 'Name']
+			members_list = ""
+			try:
+				for member_num in range(1, cf.dist_group_team_members_count[dist]):
+					member_id = cf.teams.team_dict.at[(major_id, dist), 'Member_id_' + str(member_num)]
+					member_name = cf.users.user_dict.at[member_id, 'Name']
+					members_list += member_name + "\n"
+				members_list = major_name + "  - Зарегистрировал команду\n" + members_list
 
-			for member_num in range(1, cf.dist_group_team_members_count[dist]):
-				member_id = cf.teams.team_dict.loc[(user_id, dist), 'Member_id_' + member_num]
-				major_id = cf.teams.team_dict.loc[(user_id, dist), 'Tg_id_major' ]
+				for member_num in range(1, cf.dist_group_team_members_count[dist]):
+					member_id = cf.teams.team_dict.loc[(major_id, dist), 'Member_id_' + str(member_num)]
+					#major_id = cf.teams.team_dict.loc[(major_id, dist), 'Tg_id_major' ]
 
-				# не знаю, насколько это красиво, но тогда по нажатию на кнопку я получу всю информацию.
-				keyboard = [
-						[
-						    InlineKeyboardButton("Согласен", callback_data= str(major_id) + "|" + dist + "Y"),
-						    InlineKeyboardButton("Не согласен", callback_data= str(major_id) + "|" + dist + "N"),
+					# не знаю, насколько это красиво, но тогда по нажатию на кнопку я получу всю информацию.
+					keyboard = [
+							[
+						    InlineKeyboardButton("Согласен", 
+							   callback_data= cf.TEAM_REG_PREFIX + str(major_id) + "|" + dist + "Y"),
+						    InlineKeyboardButton("Не согласен", 
+							   callback_data= cf.TEAM_REG_PREFIX + str(major_id) + "|" + dist + "N"),
 						] ]
-				reply_markup = InlineKeyboardMarkup(keyboard)
+					reply_markup = InlineKeyboardMarkup(keyboard)
 
-				await context.bot.send_message( chat_id= member_id,
-					text  = 
-					"Вы согласны участвовать в команде " + cf.teams.team_dict.loc[(user_id, dist), 'Name'] + ",\n"
-					"На дистанции " + cf.teams.team_dict.loc[(user_id, dist), 'Distance'] + ",\n"
-					"В составе:" + members_list + "?",
-					reply_markup= reply_markup
-					)
-			return CONFIRM
+					await context.bot.send_message( chat_id= member_id,
+						text  = 
+						"Вы согласны участвовать в команде " + cf.teams.team_dict.loc[(major_id, dist), 'Name'] + ",\n"
+						"На дистанции " + cf.teams.team_dict.loc[(major_id, dist), 'Distance'] + ",\n"
+						"В составе:" + members_list + "?",
+						reply_markup= reply_markup
+						)
+				return CONFIRM
+			except Exception as e:
+				print(e.args)
 
 		# Ещё не все участники записаны
 		else:
-			cf.teams.team_dict.loc[(user_id, dist), 'Member_id_' + str(new_member_num)] = new_member_id
 			await update.message.reply_text(
 				"В команде должно быть ещё" + str(num_of_remaining_members) + " участника. \n"
 				"Пожалуйста, напишите id нового участника команды. \n" 
@@ -428,20 +449,22 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 				)
 			return MEMBERS_ADD
 
+# Не отлажено полностью!!!
 async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	query = update.callback_query
 	data = query.data
 	id_size = data.find('|')
 
-	major_id = data[0 : id_size]
+	len_of_tem_prefix = len(cf.TEAM_REG_PREFIX)
+	major_id = str(data[len_of_tem_prefix : id_size])
 	dist = data[id_size + 1 : -1]
 	mean = data[-1]
 
 	major_name = cf.users.user_dict.loc[major_id, 'Name']
-	members_list = None
+	members_list = ""
 	for member_num in range(1, cf.dist_group_team_members_count[dist]):
-		member_id = cf.teams.team_dict.loc[(user_id, dist), 'Member_id_' + member_num]
-		member_name = cf.users.user_dict.loc[member_id, 'Name']
+		member_id = cf.teams.team_dict.at[(major_id, dist), 'Member_id_' + str(member_num)]
+		member_name = cf.users.user_dict.at[member_id, 'Name']
 		members_list += member_name + "\n"
 	members_list = major_name + "  - Зарегистрировал команду\n" + members_list
 
@@ -451,27 +474,29 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 		# Назначаем время старта
 		if cf.teams.team_dict.loc[(user_id, dist),'Member_comfurm_num'] == dist_group_team_members_count[dist]:
-			unawalable_list = None
+			unawalable_list = []
 			# Собираем список занятых времён
 			for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
-				member_id = cf.teams.team_dict.loc[(user_id, dist), member_column]
+				member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
 				member_unw_list = cf.users.user_dict.loc[member_id, cf.Users.RES_TIME]
-				unawalable_list.append(member_unw_list)
+				if pd.notna(member_unw_list):
+					unawalable_list.append(member_unw_list)
 			
 			# Выбираем слот
 			try:
-				slot = cf.time_table_dict[text].booking_slot(rand = False,
+				slot = cf.time_table_dict[dist].booking_slot(rand = False,
 															list_of_unavailable = unawalable_list)
 			except Exseption as ex:
 				processing_exceptions(update.message, context, e)
 
 
 			# Назначаем слот команде
-			cf.teams.team_dict.loc[(user_id, dist), 'Slot_num'] = slot[0]
+			cf.teams.team_dict.loc[(major_id, dist), 'Slot_num'] = slot[0]
 			# Добавляем время нахождения на дистанции к занятому времени у всех участников.
 			for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
-				member_id = cf.teams.team_dict.loc[(user_id, dist), member_column]
-				cf.users.user_dict.loc[member_id, cf.Users.RES_TIME].append(slot[0:2])
+				member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
+				if pd.notna(member_id):
+					cf.users.user_dict.loc[member_id, cf.Users.RES_TIME].append(slot[0:2])
 		
 		return ConversationHandler.END
 
@@ -480,23 +505,22 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 		#Оповещаем всех об отмене, сбрасываем команду.
 		
 		for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
-			member_id = cf.teams.team_dict.loc[(user_id, dist), member_column]
+			member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
 			await context.bot.send_message( chat_id= member_id,
 				text  = 
-				"Кто-то не соглачен участвовать в команде " + cf.teams.team_dict.loc[(user_id, dist), 'Name'] + ",\n"
-				"На дистанции " + cf.teams.team_dict.loc[(user_id, dist), 'Distance'] + ",\n"
+				"Кто-то не соглаcен участвовать в команде " + cf.teams.team_dict.loc[(major_id, dist), 'Name'] + ",\n"
+				"На дистанции " + cf.teams.team_dict.loc[(major_id, dist), 'Distance'] + ",\n"
 				"В составе:" + members_list + ".\n"
 				"Я вынужден отменить регистрацию команды."
 				)
 
-		major_id = cf.teams.team_dict.loc[(user_id, dist), 'Tg_id_major' ]
-		await context.bot.send_message( chat_id= member_id,
+		await context.bot.send_message( chat_id= major_id,
 			text  = 
-			"Кто-то не соглачен участвовать в команде " + cf.teams.team_dict.loc[(user_id, dist), 'Name'] + ",\n"
-			"На дистанции " + cf.teams.team_dict.loc[(user_id, dist), 'Distance'] + ",\n"
+			"Кто-то не соглачен участвовать в команде " + cf.teams.team_dict.loc[(major_id, dist), 'Name'] + ",\n"
+			"На дистанции " + cf.teams.team_dict.loc[(major_id, dist), 'Distance'] + ",\n"
 			"В составе:" + members_list + ".\n"
 			"Я вынужден отменить регистрацию команды.")
 
-		cf.teams.team_dict.loc[(user_id, dist)].clean()
+		cf.teams.team_dict.loc[(major_id, dist)].clean()
 
 		return ConversationHandler.END

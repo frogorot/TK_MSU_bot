@@ -21,6 +21,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="judge_interface.py" />
     <Compile Include="user_interface.py" />
     <Compile Include="core_funcs.py">
       <SubType>Code</SubType>
