@@ -84,7 +84,7 @@ def is_seg_nin_seg_list(left_point: int, length: int, segment_list: list)-> bool
 	# Проверяет, находится пересекается ли отрезок, заданный лывой точкой и длинной, с каким-то отрезком из списка
 	right_point = left_point + length
 	for segment in segment_list: # Совсем по хорошему надо насовать проверок, но лень.
-		if left_point >= segment[0] and right_point <= segment[1]: # Проще всего проверить истинность, если взять отрицание
+		if left_point <= segment[1] and right_point >= segment[0]: # Проще всего проверить истинность, если взять отрицание
 			return False
 	else:
 		return True
@@ -164,7 +164,7 @@ class TimeTable:
 			rand_pos = random.randint(0, len(self.table)-1)
 
 			if self.table[rand_pos].is_free and is_seg_nin_seg_list( self.table[rand_pos].start, self.dist_passing_time, list_of_unavailable):
-				cur_slot = self.table[rand_pos]
+				cur_slot = self.table.pop(rand_pos)
 				#return (rand_pos, self.table[rand_pos].start, self.table[rand_pos].start + self.dist_passing_time)
 			
 			else:
@@ -183,10 +183,10 @@ class TimeTable:
 						nearest_slot_num = slot_num
 						min_distance = abs(slot_num - rand_pos)
 				else:
-					cur_slot = self.table_of_free[nearest_slot_num]
+					cur_slot = self.table_of_free.pop(nearest_slot_num)
 		elif list_of_unavailable == []:
 			if self.table_of_free != None:
-				cur_slot = self.table_of_free[0]
+				cur_slot = self.table_of_free.pop(0)
 				#return (self.table_of_free[0].order_number, self.table_of_free[0].start, self.table_of_free[0] + self.dist_passing_time)
 			else:
 				raise Exception("TimeTable.book_slot:: Nothing free.") # Если все заняты, у нас проблемы;)
@@ -194,7 +194,7 @@ class TimeTable:
 		else:
 			for slot_num in self.table_of_free: 
 				if is_seg_nin_seg_list( self.table_of_free[slot_num].start, self.dist_passing_time, list_of_unavailable):
-					cur_slot = self.table_of_free[slot_num]
+					cur_slot = self.table_of_free.pop(slot_num)
 					break
 					#return (self.table_of_free[slot_num].order_number, self.table_of_free[slot_num].start, self.table_of_free[slot_num] + self.dist_passing_time)
 			else:
@@ -258,6 +258,7 @@ class TimeTable:
 			load_file_path += filename + SHEET_EXTENTION
 
 		self.table = pd.read_excel(load_file_path)
+		self.table_of_free = { slot.order_number : slot for slot in self.table if slot.is_free }
 
 	def setSlot(self, slot_num: int, start_time: int, interval: int, is_free: bool): # добавляет слот с заданными параметрами в конец списка
 		if slot_num > (len(self.table) - 1): # Если номер больше имевшихся, то заполняем "пропуск" дефолтными слотами
@@ -717,11 +718,17 @@ class Loader:
 		##############################################################
 		#загрузка актуальной информации о пользователях
 		users = Users()
-		users.user_dict = users.user_dict.astype( { 
-			dist_name : 'int32'
-			for dist_name in time_table_dict
-			} )
 		users.load_users()
+		for user_res_time in users.user_dict[Users.RES_TIME]:
+			if user_res_time == '[]':
+				user_res_time = []
+			else:
+				# Проигнорировали скобочки в начале и конце, разбили в список, причём в конец добавили ", ", чтобы привести последнюю скобку к тому же виду, что и остальные: "(235, 578"
+				# 
+				# Но список состоял из пар вида "(235, 578". Снова игнорируем левую скобочку в каждой паре и сплитим по запятой.
+				#
+				# Ещё список может быть пустой. Ещё из-за отбирания скобки у последней пары в конце есть ''. 
+				user_res_time = [ tuple(int(x) for x in pair[1:].split(', ')) for pair in (user_res_time[1:-1] + ", ").split('), ') if pair != '']
 
 		#print(users.user_dict)
 
@@ -732,6 +739,8 @@ class Loader:
 		try:
 			judges.load_aut_info()
 			judges.load_judge_dict()
+			# вообще, тут надо сделать сплит, дабы из текста сотворить список.
+
 		except Exception as e:
 			print(e.args)
 

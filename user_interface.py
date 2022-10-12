@@ -145,6 +145,10 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 
 ###########################################
 #Handle user_reg
+
+
+###########################################
+#Handle user_reg
 #
 #user registration steps:
 AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
@@ -174,7 +178,7 @@ async def user_reg_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 		cf.users.user_dict.loc[user.id, 'Name'] = update.message.text
 		await update.message.reply_text(
 		"Приятно познакомится! "
-		"Сколько вам лет?."
+		"Сколько вам лет?"
 		)
 		return GENDER
 	else:
@@ -231,7 +235,7 @@ async def user_reg_facility(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 	
 	cf.users.user_dict.loc[user.id, 'University'] = update.message.text
 
-	is_msu = re.search("МГУ", update.message.text)
+	is_msu = re.search("МГУ", update.message.text, re.IGNORECASE)
 	if is_msu != None:
 		await update.message.reply_text(
 			"На каком факультете вы учитесь? "
@@ -544,7 +548,15 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 				for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
 					member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
 					if pd.notna(member_id):
-						cf.users.user_dict.loc[member_id, cf.Users.RES_TIME].append(slot[0:2])
+						cf.users.user_dict.loc[member_id, cf.Users.RES_TIME].append(slot[1:3])
+						cf.users.user_dict.at[member_id, dist] = slot[0]
+						await context.bot.send_message(
+							chat_id = member_id, 
+							text = "Вы в команде: " + cf.teams.team_dict.loc[(major_id, dist), 'Name'] + ",\n"
+									"На дистанции: " + cf.teams.team_dict.loc[(major_id, dist), 'Distance'] + ",\n"
+									"В составе:" + members_list + ".\n"
+									"Стартуете в " + time.localtime(slot[1]) + ". Номер слота - " + str(slot[0]) + "."
+							)
 			
 			return ConversationHandler.END
 
