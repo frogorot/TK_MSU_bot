@@ -219,6 +219,9 @@ class TimeTable:
 			index = [slot.order_number for slot in self.table])
 		return df_table
 	
+	def retun_filename(self) -> str:
+		return info_directory + self.name + SHEET_EXTENTION
+
 	def write_TT(self, filename: str = ""):
 		df = self.to_dafaframe()
 
@@ -341,12 +344,20 @@ class Judges:
 	def write_judge_list(self):
 		#self.filename_dict = self.filename_dict
 		if self.filename_dict == None:
-			self.filename_dict = "Judges list"
+			self.filename_dict = "Judges_list"
 
 		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
 
 		self.judge_dict.to_excel(info_directory + ARCHIVE_PATH + self.filename_dict + time_str + SHEET_EXTENTION)
 		self.judge_dict.to_excel(info_directory + self.filename_dict + SHEET_EXTENTION)
+
+	def retun_filename(self) -> str:
+		write_file_name = ""
+		if self.filename_dict == "":
+			write_file_name += "Judges_list"
+		else:
+			write_file_name += self.filename_dict
+		return info_directory + write_file_name + SHEET_EXTENTION
 
 	# Можно сделать сканер директории и автоматически загружать последний по времени файл.
 	def load_aut_info(self, filename: str = "Judjes autentification info"): #filename без .xlsx
@@ -365,7 +376,7 @@ class Judges:
 				self.judge_autentification[judgename] = (judgepassword, False, 0, 0) # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
 
 	# Можно сделать сканер директории и автоматически загружать последний по времени файл.
-	def load_judge_dict(self, filename: str = "Judges list"): #загружам данные judge_dict
+	def load_judge_dict(self, filename: str = "Judges_list"): #загружам данные judge_dict
 		if filename != None:
 			self.filename_dict = filename
 		else:
@@ -417,6 +428,14 @@ class Users:
 		self.user_dict = pd.DataFrame(columns = Users.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
 		self.user_dict = self.user_dict.set_index('Tg_id')
 
+	def retun_filename(self) -> str:
+		write_file_name = ""
+		if self.filename == "":
+			write_file_name += "Users"
+		else:
+			write_file_name += self.filename
+		return info_directory + write_file_name + SHEET_EXTENTION
+
 	def write_users(self):
 		if self.filename == None:
 			self.filename = "Users"
@@ -446,22 +465,47 @@ class Users:
 		# Устанавливаем индекс Tg_id. Если это сделать раньше, то проапдёт соответствующая колонка и не красиво проверять
 		self.user_dict = self.user_dict.set_index('Tg_id')
 
+		# Перегоняем строку в список пар.
+		for user in self.user_dict.index:
+			user_res_time = self.user_dict.at[user, Users.RES_TIME]
+			if user_res_time == '[]':
+				self.user_dict.at[user, Users.RES_TIME] = []
+			else:
+				# Проигнорировали скобочки в начале и конце, разбили в список, причём в конец добавили ", ", чтобы привести последнюю скобку к тому же виду, что и остальные: "(235, 578"
+				# 
+				# Но список состоял из пар вида "(235, 578". Снова игнорируем левую скобочку в каждой паре и сплитим по запятой.
+				#
+				# Ещё список может быть пустой. Ещё из-за отбирания скобки у последней пары в конце есть ''. 
+				self.user_dict.at[user, Users.RES_TIME] = [ 
+					tuple(
+						int(x) for x in pair[1:].split(', ')
+						) 
+					for pair in (user_res_time[1:-1] + ", ").split('), ') 
+						if pair != '']
+
 class Teams:
+
+	MEMBERS_ID = 'Members_id'
 
 	list_of_params = ['Tg_id_major', 
 						  'Name', 
 						  'Distance', 
 						  'Slot_num', 
-						  'Member_id_1', 
-						  'Member_id_2',
-						  'Member_id_3',
-						  'Member_id_4',
+						  MEMBERS_ID, 
 						  'Member_confurm_num']
 
 	def __init__(self):
 		self.filename = 'Teams'
 		self.team_dict = pd.DataFrame(columns = Teams.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
 		self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
+
+	def retun_filename(self) -> str:
+		write_file_name = ""
+		if self.filename == "":
+			write_file_name += 'Teams'
+		else:
+			write_file_name += self.filename
+		return info_directory + write_file_name + SHEET_EXTENTION
 
 	def write_teams(self):
 		if self.filename == None:
@@ -487,10 +531,28 @@ class Teams:
 
 		self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
+		# Перегоняем строку в список пар.
+		for team in self.team_dict.index:
+			team_members_id = self.team_dict.at[team, Teams.MEMBERS_ID]
+			if team_members_id == '[]':
+				self.team_dict.at[team, Teams.MEMBERS_ID] = []
+			else:
+				# Проигнорировали скобочки в начале и конце, разбили в список, причём в конец добавили ", ", чтобы привести последнюю скобку к тому же виду, что и остальные: "(235, 578"
+				# 
+				# Но список состоял из пар вида "(235, 578". Снова игнорируем левую скобочку в каждой паре и сплитим по запятой.
+				#
+				# Ещё список может быть пустой. Ещё из-за отбирания скобки у последней пары в конце есть ''. 
+				self.team_dict.at[team, Teams.MEMBERS_ID] = [id
+												for id in (team_members_id[1:-1]).split(', ') 
+												if id != '']
+
 class DistanceResults:
 	def __init__(self, name):
 		self.name = name
 		self.table = pd.DataFrame()
+
+	def retun_filename(self) -> str:
+		return info_directory + self.name + SHEET_EXTENTION
 
 	def write_protocol(self):
 		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
@@ -719,16 +781,6 @@ class Loader:
 		#загрузка актуальной информации о пользователях
 		users = Users()
 		users.load_users()
-		for user_res_time in users.user_dict[Users.RES_TIME]:
-			if user_res_time == '[]':
-				user_res_time = []
-			else:
-				# Проигнорировали скобочки в начале и конце, разбили в список, причём в конец добавили ", ", чтобы привести последнюю скобку к тому же виду, что и остальные: "(235, 578"
-				# 
-				# Но список состоял из пар вида "(235, 578". Снова игнорируем левую скобочку в каждой паре и сплитим по запятой.
-				#
-				# Ещё список может быть пустой. Ещё из-за отбирания скобки у последней пары в конце есть ''. 
-				user_res_time = [ tuple(int(x) for x in pair[1:].split(', ')) for pair in (user_res_time[1:-1] + ", ").split('), ') if pair != '']
 
 		#print(users.user_dict)
 

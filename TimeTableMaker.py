@@ -58,12 +58,18 @@ def main() -> None:
 	start_writes_hendler = CommandHandler("start_writes", 
 									  filters = filters.User(user_id = cf.admin_chat_id), 
 										callback= user_interface.admin_start_writes)
+	#/get_all_data handler
+	send_all_data_hendler = CommandHandler("get_all_data", 
+									  filters = filters.User(user_id = cf.admin_chat_id), 
+										callback= user_interface.admin_send_all_data)
+
 	#Addind admin command hendlers
 	application.add_handlers(handlers = [
 		forced_load_hendler, 
 		forced_write_hendler, 
 		stop_writes_hendler, 
-		start_writes_hendler])
+		start_writes_hendler,
+		send_all_data_hendler])
 
 
 	###########################################
@@ -71,6 +77,9 @@ def main() -> None:
 	#
 	#/Help handler
 	help_hendler = CommandHandler("help", user_interface.send_welcome)
+
+	#/my_dist handler
+	my_dist_handler = CommandHandler("my_dist", user_interface.user_print_dist)
 
 	#/ask_admin handler
 	admin_connect_handler = ConversationHandler(
@@ -114,7 +123,8 @@ def main() -> None:
 	team_reg_confirm = CallbackQueryHandler(user_interface.team_reg_confirm, pattern= pattern_for_tem_reg_confirm)
 
 	application.add_handlers( handlers = [
-		help_hendler, 
+		help_hendler,
+		my_dist_handler,
 		admin_connect_handler, 
 		user_reg_handler, 
 		team_reg_handler, 
@@ -124,16 +134,16 @@ def main() -> None:
 	#Judge commands
 	#
 	# /judge Handler
-	judge_reg_handler = ConversationHandler(
-		entry_points=[CommandHandler("admin_judge_start", judge_interface.notify, filters = filters.User(user_id = cf.admin_chat_id))],
-		states={
-			judge_interface.DISTANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, judge_interface.judge_reg_start)]
-			#judge_interface.DISTANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, judge_interface.judge_reg_distance)]
-		},
-		fallbacks=[CommandHandler("cancel", judge_interface.cancel)],
-	)
-
-	application.add_handler(judge_reg_handler)
+	#judge_reg_handler = ConversationHandler(
+	#	entry_points=[CommandHandler("admin_judge_start", judge_interface.notify, filters = filters.User(user_id = cf.admin_chat_id))],
+	#	states={
+	#		judge_interface.DISTANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, judge_interface.judge_reg_start)]
+	#		#judge_interface.DISTANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, judge_interface.judge_reg_distance)]
+	#	},
+	#	fallbacks=[CommandHandler("cancel", judge_interface.cancel)],
+	#)
+	#
+	#application.add_handler(judge_reg_handler)
 	print("Bot start")
 
 	# Run the interface until the user presses Ctrl-C
