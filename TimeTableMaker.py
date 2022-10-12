@@ -15,7 +15,6 @@ import core_funcs as cf
 import user_interface
 import judge_interface
 
-
 def main() -> None:
 
 	""" Configure interface."""
