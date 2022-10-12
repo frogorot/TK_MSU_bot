@@ -9,6 +9,7 @@ import time
 #SHEETS_DIRECTORY_NAME = 'sheets'
 SHEET_EXTENTION = '.xlsx'
 AUTENTIFICATION_EXTENTION = '.aut'
+ARCHIVE_PATH = 'Archive/'
 
 COMPLETE_CHOOSING = 'Всё'
 
@@ -100,7 +101,7 @@ def from_start_time_to_num_default(current_start_time, open_time, interval): #к
 class TimeTable:
 	# open_time - время открытия дистанции, close_time - время закрытия дистанции
 	def from_start_time_to_num_default(self, current_start_time) -> int: #конверитирует время старта слота в его номер
-		return (current_start_time - self.open_time) / self.interval;
+		return int((current_start_time - self.open_time) / self.interval);
 
 	def __init__(self, distance: str, open_time: int, close_time: int, interval: int, passing_time: int):
 		self.name = distance
@@ -108,7 +109,7 @@ class TimeTable:
 		self.close_time = close_time
 		self.interval = interval
 		self.dist_passing_time = passing_time
-		self.table = [ Slot(from_start_time_to_num_default(slot_time, self.open_time, self.interval), slot_time, interval, True)
+		self.table = [ Slot(int(from_start_time_to_num_default(slot_time, self.open_time, self.interval)), slot_time, interval, True)
 				for slot_time in gene_table(open_time, close_time, interval) ] # пустой стартовый протокол 
 		self.table_of_free = { slot.order_number : slot for slot in self.table } # Не список, так как свободные слоты могут идти хаотично. Индексация всё равно по порядковому номеру слотов
 
@@ -210,14 +211,28 @@ class TimeTable:
 	def getTable(self) -> list[Slot]:
 		return self.table
 
-	def to_dafaframe(self): # список в датафрейм
+	def to_dafaframe(self) -> pd.DataFrame: # список в датафрейм
 		df_table = pd.DataFrame({
-			'Start_times' : [slot.start for slot_time in self.table],
-			'Free_slot' : [slot.is_free for slot_time in self.table]
+			'Start_times' : [slot.start for slot in self.table],
+			'Free_slot' : [slot.is_free for slot in self.table]
 			},
-			index = [slot.order_number for slot_time in self.table])
+			index = [slot.order_number for slot in self.table])
 		return df_table
 	
+	def write_TT(self, filename: str = ""):
+		df = self.to_dafaframe()
+
+		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
+
+		write_file_name = ""
+		if filename == "":
+			write_file_name += self.name
+		else:
+			write_file_name += filename
+
+		df.to_excel(info_directory + ARCHIVE_PATH + write_file_name +  time_str + SHEET_EXTENTION)
+		df.to_excel(info_directory + write_file_name + SHEET_EXTENTION)
+
 	def setTable(self, new_table: list[Slot]):
 		self.table = new_table
 
@@ -234,6 +249,15 @@ class TimeTable:
 				self.table.append( Slot(df_ind, df[df_ind]['Start_times'], interval,  df[df_ind]['Free_slot']) )
 				if df[df_ind]['Free_slot']:
 					self.table_of_free[df_ind] = self.table[-1] # Нужно проверить
+
+	def load_TT(self, filename: str = ""):
+		load_file_path = info_directory
+		if filename == "":
+			load_file_path += self.name + SHEET_EXTENTION
+		else:
+			load_file_path += filename + SHEET_EXTENTION
+
+		self.table = pd.read_excel(load_file_path)
 
 	def setSlot(self, slot_num: int, start_time: int, interval: int, is_free: bool): # добавляет слот с заданными параметрами в конец списка
 		if slot_num > (len(self.table) - 1): # Если номер больше имевшихся, то заполняем "пропуск" дефолтными слотами
@@ -269,15 +293,17 @@ class TimeTable:
 class Judges:
 	MAJOR, LINEAR = range(2) # - 'Status', 'stage' - этапы
 	PASSWORD, IS_AUT, NUM_OF_FAILS, TIME_OF_LAST_TRY = range(4)
-	def __init__(self):
-		list_of_params = ['Tg_id', 
+
+	list_of_params = ['Tg_id', 
 						  'Name', 
 						  'Status', 
 						  'Distances', 
 						  'Stages'] 
+
+	def __init__(self):
 		self.filename_dict = "Judges list"
 		self.filename_aut = "Judges autentification info"
-		self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
+		self.judge_dict = pd.DataFrame(columns = Judges.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
 		self.judge_dict = self.judge_dict.set_index('Tg_id')
 		self.judge_autentification = {} # зашел ли судья с этим паролем или нет # tg_id : (пароль, вошёл ли в учётку,число неуспешных попыток, время последней попытки)
 		#aut_time_delay = [0, 10, 20] # в каждом окне по 3 попытки
@@ -296,14 +322,17 @@ class Judges:
 
 	def write_aut_info(self): # записываем id из tg и пароли
 
-		with open(secure_directory + self.filename_aut + 
-			int.today().strftime("-%m.%d.%Y,%H-%M-%S") + AUTENTIFICATION_EXTENTION, 'W') as file: #int - чтобы были логи
+		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
+		
+		full_filename = secure_directory + ARCHIVE_PATH + self.filename_aut + time_str + AUTENTIFICATION_EXTENTION
+		with open(full_filename, mode= 'w') as file: #int - чтобы были логи
 
 			for line in self.judge_autentification:
 				string = line + ' | ' + self.judge_autentification[line] + "\n"
 				file.write(string)
-
-		with open(secure_directory + self.filename_aut + AUTENTIFICATION_EXTENTION, 'W') as file: #int - чтобы были логи
+		
+		full_filename = secure_directory + self.filename_aut + AUTENTIFICATION_EXTENTION
+		with open(full_filename, mode= 'w') as file: #int - чтобы были логи
 			for line in self.judge_autentification:
 				string = line + ' | ' + self.judge_autentification[line] + "\n"
 				file.write(string)
@@ -312,7 +341,10 @@ class Judges:
 		#self.filename_dict = self.filename_dict
 		if self.filename_dict == None:
 			self.filename_dict = "Judges list"
-		self.judge_dict.to_excel(info_directory + self.filename_dict + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
+
+		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
+
+		self.judge_dict.to_excel(info_directory + ARCHIVE_PATH + self.filename_dict + time_str + SHEET_EXTENTION)
 		self.judge_dict.to_excel(info_directory + self.filename_dict + SHEET_EXTENTION)
 
 	# Можно сделать сканер директории и автоматически загружать последний по времени файл.
@@ -322,8 +354,9 @@ class Judges:
 		else:
 			if self.filename_aut == None:
 				raise Exseption("Judges::load_aut_info: empty file name and empty self.filename_aut. I can't contine load")
-			
-		with open(secure_directory + self.filename_aut + AUTENTIFICATION_EXTENTION, 'r') as file:
+		
+		full_filename = secure_directory + self.filename_aut + AUTENTIFICATION_EXTENTION
+		with open(full_filename, mode= 'r') as file:
 			for line in file:
 				namesize = line.find(' | ')
 				judgename = line[0 : namesize]
@@ -339,13 +372,14 @@ class Judges:
 				raise Exseption("Judges::load_judge_list: empty file name and empty self.filename_dict. I can't contine load")
 		
 		self.judge_dict = pd.read_excel(info_directory + self.filename_dict + SHEET_EXTENTION)
-		self.judge_dict.set_index('Tg_id')
 
-		if not set(list_of_params).issubset(self.judge_dict.columns):
-			self.judge_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
-			self.judge_dict.set_index('Tg_id')
+		if not set(Judges.list_of_params).issubset(self.judge_dict.columns):
+			self.judge_dict = pd.DataFrame(columns = Judges.list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
 			raise Exsepton("Judges::load_judge_list: Wrong data in filename=" + filename + ". There is no Judges::list_of_params.")
 
+		self.judge_dict.set_index('Tg_id')
+
+	# Попытка аутентификации судьи
 	def try_to_autentificate_judge(self, judge_tg_id, judge_password: str) -> bool: #челик вводит пароль, ключ tg_id
 		if judge_tg_id in self.judge_autentification.keys():
 			if self.judge_autentification[judge_tg_id] == judge_password:
@@ -385,7 +419,10 @@ class Users:
 	def write_users(self):
 		if self.filename == None:
 			self.filename = "Users"
-		self.user_dict.to_excel(info_directory + self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
+
+		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
+
+		self.user_dict.to_excel(info_directory + ARCHIVE_PATH + self.filename + time_str + SHEET_EXTENTION)
 		self.user_dict.to_excel(info_directory + self.filename + SHEET_EXTENTION)
 
 	def load_users(self, filename: str = "Users"):
@@ -397,12 +434,7 @@ class Users:
 		
 		try:
 			self.user_dict = pd.read_excel(info_directory + self.filename + SHEET_EXTENTION)
-			
-			print(Users.list_of_params)
-			print("\n")
-			print(self.user_dict.columns)
 
-			# Так как 
 			if not set(Users.list_of_params).issubset(self.user_dict.columns): #проверка что нам дали адекватный файл(например не файл с судьями)
 				self.user_dict = pd.DataFrame(columns = Users.list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
 				raise Exsepton("Users::load_users: Wrong data in filename=" + filename + ". There is no Users::list_of_params.")
@@ -414,8 +446,8 @@ class Users:
 		self.user_dict = self.user_dict.set_index('Tg_id')
 
 class Teams:
-	def __init__(self):
-		list_of_params = ['Tg_id_major', 
+
+	list_of_params = ['Tg_id_major', 
 						  'Name', 
 						  'Distance', 
 						  'Slot_num', 
@@ -423,17 +455,20 @@ class Teams:
 						  'Member_id_2',
 						  'Member_id_3',
 						  'Member_id_4',
-						  'Member_comfurm_num']
+						  'Member_confurm_num']
+
+	def __init__(self):
 		self.filename = 'Teams'
-		self.team_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
+		self.team_dict = pd.DataFrame(columns = Teams.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
 		self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
 	def write_teams(self):
-		if self.filename != None:
+		if self.filename == None:
 			raise Exseption("Teams::write_teams: empty file name and empty self.filename. I can't contine load")
 
+		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
 		# Пишем два файла - один - для истории, второй - подменяет актуальный
-		self.team_dict.to_excel(info_directory + self.filename + int.today().strftime("-%m.%d.%Y,%H-%M-%S") + SHEET_EXTENTION)
+		self.team_dict.to_excel(info_directory + ARCHIVE_PATH + self.filename + time_str + SHEET_EXTENTION)
 		self.team_dict.to_excel(info_directory + self.filename + SHEET_EXTENTION)
 
 	def load_teams(self, filename: str = 'Teams'):
@@ -444,19 +479,35 @@ class Teams:
 				raise Exseption("Teams::load_teams: empty file name and empty self.filename. I can't contine load")
 		
 		self.team_dict = pd.read_excel(info_directory + self.filename + SHEET_EXTENTION)
-		self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
-		if not set(list_of_params).issubset(self.team_dict.columns):
-			self.team_dict = pd.DataFrame(columns = list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
-			self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
+		if not set(Teams.list_of_params).issubset(self.team_dict.columns):
+			self.team_dict = pd.DataFrame(columns = Teams.list_of_params) #Дистанции - список, этамы - словарь = {дистанция:этап}
 			raise Exsepton("Teams::load_teams: Wrong data in filename=" + filename + ". There is no Teams::list_of_params.")
+
+		self.team_dict = self.team_dict.set_index(['Tg_id_major', 'Distance'])
 
 class DistanceResults:
 	def __init__(self, name):
 		self.name = name
 		self.table = pd.DataFrame()
 
-	def loadProtocol(self, df: pd.DataFrame):
+	def write_protocol(self):
+		time_str = time.strftime("-%m.%d.%Y_%H-%M-%S", time.localtime(time.time()))
+
+		self.table.to_excel(info_directory + ARCHIVE_PATH + self.name + time_str + SHEET_EXTENTION)
+		self.table.to_excel(info_directory + self.name + SHEET_EXTENTION)
+
+	def load_protocol(self, filename: str = ""):
+
+		load_file_path = info_directory
+		if filename == "":
+			load_file_path += self.name + SHEET_EXTENTION
+		else:
+			load_file_path += filename + SHEET_EXTENTION
+
+		self.table = pd.read_excel(load_file_path)
+
+	def set_protocol(self, df: pd.DataFrame):
 		self.table = df
 
 	def addStage(self, name, types = ['start', 'finish', 'penalty']):
@@ -473,6 +524,43 @@ class DistanceResults:
 		else:
 			raise Exception("DistanceResults.writesell:: There in no column=" + col_name + "in self.table.")
 
+#запись всех данных
+async def write_all_data():
+	try:
+		#Мы верим, что груповые и пешеходыне дистанции не пересекаются
+		for dist_name in dist_personal_dict:
+			dist_personal_dict[dist_name].write_protocol()
+			time_table_dict[dist_name].write_TT(dist_name)
+
+		for dist_name in dist_group_dict:
+			dist_group_dict[dist_name].write_protocol()
+			time_table_dict[dist_name].write_TT(dist_name)
+		
+		users.write_users()
+		judges.write_aut_info()
+		judges.write_judge_list()
+		teams.write_teams()
+	except Exception as e:
+		print(e.args)
+
+async def load_all_data():
+	try:
+		#Мы верим, что груповые и пешеходыне дистанции не пересекаются
+		for dist_name in dist_personal_dict:
+			dist_personal_dict[dist_name].load_protocol(dist_name)
+
+			time_table_dict[dist_name].load_TT(dist_name)
+
+		for dist_name in dist_group_dict:
+			dist_group_dict[dist_name].load_protocol(dist_name)
+			time_table_dict[dist_name].load_TT(dist_name)
+		
+		users.load_users()
+		judges.load_aut_info()
+		judges.load_judge_dict()
+		teams.load_teams()
+	except Exception as e:
+		print(e.args)
 
 class Loader:
 	pers_dist_group_name = 'personal_distances'
@@ -506,7 +594,6 @@ class Loader:
 		global dist_group_keyboard
 		global dist_group_team_members_count
 		global re_str_group_disr 
-
 
 		global users
 		global judges
@@ -612,11 +699,17 @@ class Loader:
 
 		# Заканчиваем генерить клавиатуру
 		dist_group_keyboard.append(row)
-		dist_group_keyboard.append([COMPLETE_CHOOSING])
+
+		# К клавиатуре груповых дистанций не надо добавлять "Всё"
+		#dist_group_keyboard.append([COMPLETE_CHOOSING])
 
 		##############################################################
 		#загрузка актуальной информации о пользователях
 		users = Users()
+		users.user_dict = users.user_dict.astype( { 
+			dist_name : 'int32'
+			for dist_name in time_table_dict
+			} )
 		users.load_users()
 
 		#print(users.user_dict)
@@ -625,14 +718,17 @@ class Loader:
 		#загрузка актуальной информации о судьях
 
 		judges = Judges()
-		#judges.load_aut_info()
-		#judges.load_judge_dict()
-		#
-		#print(users.judge_dict)
+		try:
+			judges.load_aut_info()
+			judges.load_judge_dict()
+		except Exception as e:
+			print(e.args)
 
 		##############################################################
 		#загрузка актуальной информации о командвх
 		teams = Teams()
-		#teams.load_teams()
-		#
-		#print(teams.team_dict)
+		try:
+			teams.load_teams()
+		except Exception as e:
+			print(e.args)
+

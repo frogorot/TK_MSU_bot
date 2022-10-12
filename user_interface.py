@@ -29,13 +29,13 @@ from telegram.ext import (
 	ContextTypes,
 	ConversationHandler,
 	MessageHandler,
+	JobQueue,
 	filters,
 )
 
 import core_funcs as cf
 
 from core_funcs import users
-
 
 # Enable logging
 logging.basicConfig(
@@ -44,8 +44,50 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-#user registration steps:
-AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES, EXIT = range(6)
+###########################################
+# Словарь задач
+# Нужен чтобы отключать, запускать или менять задачи
+WRITE_ALL_DATA_JOB = 'write_all_data_job'
+job_dict = {}
+
+
+###########################################
+# Несколько команд для админов
+# 
+# Принудительная загрузка
+async def admin_forced_load(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    
+	await cf.load_all_data()
+
+	for admin_id in cf.admin_chat_id:
+		await context.bot.send_message(chat_id=admin_id,
+			text =  "Загрузил все файлы с диска.")
+
+# Принудительное сохранение
+async def admin_forced_write(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    
+	await cf.write_all_data()
+
+	for admin_id in cf.admin_chat_id:
+		await context.bot.send_message(chat_id=admin_id,
+			text =  "Сохранил все файлы на диск")
+
+# Остановка периодических сохранений
+async def admin_stop_writes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    
+	job_dict[WRITE_ALL_DATA_JOB].enabled = False
+
+	for admin_id in cf.admin_chat_id:
+		await context.bot.send_message(chat_id=admin_id,
+			text =  "Остановил периодическое сохранение.")
+# Запуск периодических сохранений
+async def admin_start_writes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    
+	job_dict[WRITE_ALL_DATA_JOB].enabled = True
+
+	for admin_id in cf.admin_chat_id:
+		await context.bot.send_message(chat_id=admin_id,
+			text =  "Запустил периодическое сохранение.")
 
 ###########################################
 # Handle '/help'
@@ -63,17 +105,17 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	#bot.register_next_step_handler(msg, process_name_step)
 
 
-def processing_exceptions(message, context: ContextTypes.DEFAULT_TYPE,  excep: Exception):
+async def processing_exceptions(message, context: ContextTypes.DEFAULT_TYPE,  excep: Exception):
 
 	print('Что-то пошло не так( Попробуйте ещё раз! ')
 	print(excep.args)
 	for admin_chat_id in cf.admin_chat_id:
-		message.forward(chat_id= admin_chat_id, 
+		await message.forward(chat_id= admin_chat_id, 
 				   #from_chat_id= update.message.chat.id, 
 				   disable_notification = True 
 				   #message_id= update.message.message_id
 				   )
-		context.bot.send_message(chat_id= admin_chat_id,
+		await context.bot.send_message(chat_id= admin_chat_id,
 					text = excep.args)
 
 ###########################################
@@ -103,6 +145,7 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 
 ###########################################
 #Handle user_reg
+#
 #user registration steps:
 AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
 
@@ -215,25 +258,25 @@ async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE)
 		users_data.loc[user.id, 'Facility'] = text
 	elif text != cf.COMPLETE_CHOOSING:
 		logger.info("Dist of %s, %s: %s", user.first_name, user.id, text)
-		if users_data.loc[user.id, text] == None:
+		if pd.isna(users_data.loc[user.id, text]):
 			slot = None
 			try:
 				slot = cf.time_table_dict[text].booking_slot(rand = False,
 															list_of_unavailable = users_data.loc[user.id, cf.users.RES_TIME ])
 				
-				users_data.loc[user.id, text] = slot[0]
-				users_data.loc[user.id, cf.users.RES_TIME].append(slot[1:3])
+				users_data.at[user.id, text] = slot[0]
+				users_data.at[user.id, cf.users.RES_TIME].append(slot[1:3])
 				await update.message.reply_text(
 				time.strftime("Ваше время старта на дистанции: %H:%M.\n", time.localtime(slot[1]))+
 				"Пожалуйста, не опаздывайте;)"
 				)
 
 			except Exception as e:
-				processing_exceptions(update.message, context, e)
+				await processing_exceptions(update.message, context, e)
 
 		else:
 			try:
-				slot_num = users_data.loc[user.id, text]
+				slot_num = int(users_data.at[user.id, text])
 				start_time = cf.time_table_dict[text].table[ slot_num ].start
 				await update.message.reply_text(
 					"Вы уже зарегистрированы на дистанцию "+ text + ".\n" +
@@ -241,7 +284,7 @@ async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE)
 				
 				)
 			except Exception as e:
-				processing_exceptions(update.message, context, e)
+				await processing_exceptions(update.message, context, e)
 
 	else: 
 		logger.info("User %s, %s finish the registration.", user.first_name, user.id)
@@ -260,7 +303,9 @@ async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE)
 	await update.message.reply_text(
 		"На каких дистанциях вы хотели бы участвовать?",
 		reply_markup=ReplyKeyboardMarkup(
-		cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="выберите дистанции"
+			cf.dist_personal_keyboard, 
+			one_time_keyboard=True, 
+			input_field_placeholder="выберите дистанции"
 	),
 	)
 	return DISTANCES
@@ -309,6 +354,7 @@ async def team_reg_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 	try:
 		#cf.teams.team_dict.at[(user_id, dist), 'Tg_id_major'] = user_id
 		cf.teams.team_dict.at[(user_id, dist), 'Distance'] = dist
+		cf.teams.team_dict.loc[(user_id, dist),'Member_confurm_num'] = 1
 	except Exception as e:
 		print(e.args)
 
@@ -456,7 +502,7 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 	id_size = data.find('|')
 
 	len_of_tem_prefix = len(cf.TEAM_REG_PREFIX)
-	major_id = str(data[len_of_tem_prefix : id_size])
+	major_id = int(data[len_of_tem_prefix : id_size])
 	dist = data[id_size + 1 : -1]
 	mean = data[-1]
 
@@ -468,59 +514,63 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 		members_list += member_name + "\n"
 	members_list = major_name + "  - Зарегистрировал команду\n" + members_list
 
-	if mean == "Y":
-		cf.teams.team_dict.loc[(user_id, dist),'Member_comfurm_num'] += 1
-		await query.edit_message_text(text="Спасибо! Как только я получу все подтверждения, то сразу подберу вам время старта.")
+	try:
+		if mean == "Y":
+			cf.teams.team_dict.loc[(major_id, dist),'Member_confurm_num'] += 1
+			await query.edit_message_text(text="Спасибо! Как только я получу все подтверждения, то сразу подберу вам время старта.")
 
-		# Назначаем время старта
-		if cf.teams.team_dict.loc[(user_id, dist),'Member_comfurm_num'] == dist_group_team_members_count[dist]:
-			unawalable_list = []
-			# Собираем список занятых времён
-			for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
-				member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
-				member_unw_list = cf.users.user_dict.loc[member_id, cf.Users.RES_TIME]
-				if pd.notna(member_unw_list):
-					unawalable_list.append(member_unw_list)
+			# Назначаем время старта
+			if cf.teams.team_dict.at[(major_id, dist),'Member_confurm_num'] == cf.dist_group_team_members_count[dist]:
+				unawalable_list = []
+				# Собираем список занятых времён
+				for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
+					member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
+					if pd.notna(member_id):
+						member_unw_list = cf.users.user_dict.loc[member_id, cf.Users.RES_TIME]
+						if pd.notna(member_unw_list):
+							unawalable_list.append(member_unw_list)
+				
+				# Выбираем слот
+				try:
+					slot = cf.time_table_dict[dist].booking_slot(rand = False,
+																list_of_unavailable = unawalable_list)
+				except Exception as ex:
+					processing_exceptions(update.message, context, e)
+
+
+				# Назначаем слот команде
+				cf.teams.team_dict.loc[(major_id, dist), 'Slot_num'] = slot[0]
+				# Добавляем время нахождения на дистанции к занятому времени у всех участников.
+				for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
+					member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
+					if pd.notna(member_id):
+						cf.users.user_dict.loc[member_id, cf.Users.RES_TIME].append(slot[0:2])
 			
-			# Выбираем слот
-			try:
-				slot = cf.time_table_dict[dist].booking_slot(rand = False,
-															list_of_unavailable = unawalable_list)
-			except Exseption as ex:
-				processing_exceptions(update.message, context, e)
+			return ConversationHandler.END
 
 
-			# Назначаем слот команде
-			cf.teams.team_dict.loc[(major_id, dist), 'Slot_num'] = slot[0]
-			# Добавляем время нахождения на дистанции к занятому времени у всех участников.
-			for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
-				member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
-				if pd.notna(member_id):
-					cf.users.user_dict.loc[member_id, cf.Users.RES_TIME].append(slot[0:2])
-		
-		return ConversationHandler.END
-
-
-	else:
+		else:
 		#Оповещаем всех об отмене, сбрасываем команду.
 		
-		for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
-			member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
-			await context.bot.send_message( chat_id= member_id,
+			for member_column in cf.teams.team_dict[['Member_id_1', 'Member_id_2','Member_id_3','Member_id_4']]:
+				member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
+				await context.bot.send_message( chat_id= member_id,
 				text  = 
 				"Кто-то не соглаcен участвовать в команде " + cf.teams.team_dict.loc[(major_id, dist), 'Name'] + ",\n"
 				"На дистанции " + cf.teams.team_dict.loc[(major_id, dist), 'Distance'] + ",\n"
 				"В составе:" + members_list + ".\n"
 				"Я вынужден отменить регистрацию команды."
-				)
+					)
 
-		await context.bot.send_message( chat_id= major_id,
+			await context.bot.send_message( chat_id= major_id,
 			text  = 
 			"Кто-то не соглачен участвовать в команде " + cf.teams.team_dict.loc[(major_id, dist), 'Name'] + ",\n"
 			"На дистанции " + cf.teams.team_dict.loc[(major_id, dist), 'Distance'] + ",\n"
 			"В составе:" + members_list + ".\n"
 			"Я вынужден отменить регистрацию команды.")
 
-		cf.teams.team_dict.loc[(major_id, dist)].clean()
+			cf.teams.team_dict.loc[(major_id, dist)].clean()
 
-		return ConversationHandler.END
+			return ConversationHandler.END
+	except Exception as e:
+		print(e.args)
