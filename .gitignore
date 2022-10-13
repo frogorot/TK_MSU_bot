@@ -9,6 +9,11 @@ __pycache__/
 #Local secure info
 secure_info/
 
+#User data
+load_info/Judges list.xlsx
+load_info/Teams.xlsx
+load_info/Users.xlsx
+
 # Distribution / packaging
 .Python
 build/
