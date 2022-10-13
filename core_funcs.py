@@ -1,6 +1,7 @@
 import random
 import toml
 import pandas as pd
+import re
 #import pathlib 
 import time
 
@@ -31,6 +32,14 @@ dist_group_dict = {}
 dist_group_keyboard = []
 dist_group_team_members_count = {}
 re_str_group_disr = None
+
+stages_mountain_simple_keyboard = []
+stages_mountain_complex_keyboard = []
+stages_fox_hunting_keyboard = []
+stages_adventure_keyboard = []
+stages_water_katamaran_keyboard = []
+stages_bike_keyboard = []
+stages_pedestrian_keyboard = []
 
 
 users = None
@@ -658,12 +667,13 @@ class Loader:
 		global dist_group_team_members_count
 		global re_str_group_disr
 
-		global stages_moun_sim_keyboard
-		global stages_moun_com_keyboard
-		global stages_fox_hunt_keyboard
-		global stages_advent_keyboard
-		global stages_wat_cat_keyboard
+		global stages_mountain_simple_keyboard
+		global stages_mountain_complex_keyboard
+		global stages_fox_hunting_keyboard
+		global stages_adventure_keyboard
+		global stages_water_katamaran_keyboard
 		global stages_bike_keyboard
+		global stages_pedestrian_keyboard
 
 		global users
 		global judges
@@ -675,11 +685,12 @@ class Loader:
 
 		# Загрузка парсеров
 		self.sucere_pars = Parser()
-		self.sucere_pars.load_toml(self.run_pars.at('secure_file'))
+		self.sucere_pars.load_toml(self.run_pars.at('secure_file')) #ключ 'secure_file',
 		self.info_pars = Parser()
 		self.info_pars.load_toml(self.run_pars.at('info_file'))
 		secure_directory = self.run_pars.at('secure_dir')
 		info_directory = self.run_pars.at('info_dir')
+		# self.info_pars.at('mountain_simple') - получаю значения по этому ключу. self.info_pars.at('mountain_simple')['open_time']
 
 		##############################################################
 		#Загрузка секретной информации
@@ -717,22 +728,21 @@ class Loader:
 												close_time= close_time,
 												interval= interval,
 												passing_time= passing_time)
-			#Генерим клавиатуру
+			#Генерим клавиатуру личных дистанций
 			if len(row) == Loader.NUM_OF_KEYS_IN_ROW_FOR_DIST:
 				dist_personal_keyboard.append(row)
 				row = []
 			row.append(name)
-		
+
 		# Заканчиваем создание регулярки для распознования одного из названий дистанции
 		re_str_pesr_disr += ")$"
 
-		# Заканчиваем генерить клавиатуру
+		# Заканчиваем генерить клавиатуру личных дистанций
 		dist_personal_keyboard.append(row)
 		dist_personal_keyboard.append([ COMPLETE_CHOOSING])
 		row = []
+		print(type(dist_personal_keyboard))
 
-		#Начинаем генерить клавиатуру для этапов
-		#решила, что лучше сделать быстрее, чем красивее с регулярками
 
 
 		# Обработка информации по групповым дистанциям
@@ -776,6 +786,34 @@ class Loader:
 
 		# К клавиатуре груповых дистанций не надо добавлять "Всё"
 		#dist_group_keyboard.append([COMPLETE_CHOOSING])
+
+		# Генерим клавиатуру этапов дистанций
+		distances_dict = {'mountain_simple': stages_mountain_simple_keyboard, 'mountain_complex': stages_mountain_complex_keyboard,
+						  'fox_hunting': stages_fox_hunting_keyboard, 'adventure': stages_adventure_keyboard,
+						  'water_katamaran': stages_water_katamaran_keyboard, 'bike':stages_bike_keyboard, 'pedestrian': stages_pedestrian_keyboard}
+		for p_dist in self.info_pars.at(Loader.pers_dist_group_name):
+			dist_params = self.info_pars.at(p_dist)
+			for param in dist_params:
+				try:
+					if re.findall(r'\bst[\d]+\b', param):
+						distances_dict[p_dist].append(self.info_pars.at(p_dist)[param])
+						#print(distances_dict[p_dist])
+				except Exception as e:
+					print('ошибка але')
+					print(e.args)
+		for g_dist in self.info_pars.at(Loader.group_dist_group_name):
+			dist_params = self.info_pars.at(g_dist)
+			for param in dist_params:
+				try:
+					if re.findall(r'\bst[\d]+\b', param):
+						distances_dict[g_dist].append(self.info_pars.at(g_dist)[param])
+						#print(distances_dict[p_dist])
+				except Exception as e:
+					print('ошибка але')
+					print(e.args)
+		# Закончила генерить клавиатуру этапов дистанций
+		#print(stages_mountain_complex_keyboard)
+		print(distances_dict)
 
 		##############################################################
 		#загрузка актуальной информации о пользователях

@@ -105,16 +105,32 @@ async def judge_reg_distance(update: Update, context: ContextTypes.DEFAULT_TYPE)
 												   "Какую дистанцию вы судите?\n", reply_markup=ReplyKeyboardMarkup(
 					cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберите дистанции"
 				))
-			# await update.message.reply_text("Какую дистанцию вы судите?",
-			# 	reply_markup=ReplyKeyboardMarkup(
-			# 		cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="Выберите дистанции"
-			# 	),
-			# )
 		except Exception as e:
 			print(e.args)
 			context.bot.send_message((cf.admin_chat_id, f'ошибка отправки сообщения юзеру - {judge}'))
-	#new_close
 	return DISTANCE
+
+
+# async def judge_reg_stages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+# 	"""asks about stages"""
+# 	user = update.message.from_user
+# 	logger.info("Stages of %s, %s: %s", user.first_name, user.id, update.message.text)
+# 	cf.judges.judges_dict.loc[user.id, 'Stage'] = update.message.text
+# 	for el in [] = re.search("МГУ", update.message.text)
+# 	if is_msu != None:
+# 		await update.message.reply_text(
+# 			"На каком факультете вы учитесь? "
+# 		)
+# 	# return DISTANCES
+# 	else:
+# 		await update.message.reply_text(
+# 			"На каких дистанциях вы хотели бы участвовать?",
+# 			reply_markup=ReplyKeyboardMarkup(
+# 				cf.dist_personal_keyboard, one_time_keyboard=True, input_field_placeholder="выберите дистанции"
+# 			),
+# 		)
+#
+# 	return STAGES
 
 # async def judge_reg_distance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # 	"""Starts the conversation and asks the user about their name."""
