@@ -80,6 +80,8 @@ def main() -> None:
 
 	#/my_dist handler
 	my_dist_handler = CommandHandler("my_dist", user_interface.user_print_dist)
+	#/new_dist Handle
+	new_dist_hendler = CommandHandler("new_dist", user_interface.user_new_dist)
 
 	#/ask_admin handler
 	admin_connect_handler = ConversationHandler(

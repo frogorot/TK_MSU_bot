@@ -40,6 +40,8 @@ teams = None
 api_token = None
 admin_chat_id = None
 
+
+
 # идеи
 # slot - это строка(пустая или непустая) в стартовом протоколе
 class Parser:
@@ -112,6 +114,14 @@ class TimeTable:
 		self.table = [ Slot(int(from_start_time_to_num_default(slot_time, self.open_time, self.interval)), slot_time, interval, True)
 				for slot_time in gene_table(open_time, close_time, interval) ] # пустой стартовый протокол 
 		self.table_of_free = { slot.order_number : slot for slot in self.table } # Не список, так как свободные слоты могут идти хаотично. Индексация всё равно по порядковому номеру слотов
+
+
+	def update_free(self, current_time: int):
+		for slot_num in self.table_of_free:
+			slot = self.table_of_free[slot_num]
+			if slot.start < current_time:
+				slot.is_free = False
+				self.table_of_free.pop(slot_num)
 
 	def is_time_free(self, time_for_check) -> (bool, int): # возвращает самое раннее время старта до int
 		if time_for_check < self.open_time or time_for_check > self.close_time:
@@ -203,7 +213,7 @@ class TimeTable:
 		
 		cur_slot.is_free = False
 		return (cur_slot.order_number, cur_slot.start, cur_slot.start + self.dist_passing_time)
-
+		
 
 	def free_slots(self):
 		return table_of_free
@@ -797,7 +807,7 @@ class Loader:
 			print(e.args)
 
 		##############################################################
-		#загрузка актуальной информации о командвх
+		#загрузка актуальной информации о командах
 		teams = Teams()
 		try:
 			teams.load_teams()

@@ -44,6 +44,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def processing_exceptions(message, context: ContextTypes.DEFAULT_TYPE,  excep: Exception):
+
+	print(excep.args)
+	for admin_chat_id in cf.admin_chat_id:
+		await message.forward(chat_id= admin_chat_id, 
+				   #from_chat_id= update.message.chat.id, 
+				   disable_notification = True 
+				   #message_id= update.message.message_id
+				   )
+		await context.bot.send_message(chat_id= admin_chat_id,
+					text = excep.args)
+
+
 ###########################################
 # Словарь задач
 # Нужен чтобы отключать, запускать или менять задачи
@@ -59,6 +72,10 @@ async def admin_forced_load(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 	await cf.load_all_data()
 
+	user = update.message.from_user
+
+	logger.info("Admin %s, %s initiate /forced_load", user.first_name, user.id)
+
 	for admin_id in cf.admin_chat_id:
 		await context.bot.send_message(chat_id=admin_id,
 			text =  "Загрузил все файлы с диска.")
@@ -67,6 +84,9 @@ async def admin_forced_load(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_forced_write(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 	await cf.write_all_data()
+
+	user = update.message.from_user
+	logger.info("Admin %s, %s initiate /forced_write", user.first_name, user.id)
 
 	for admin_id in cf.admin_chat_id:
 		await context.bot.send_message(chat_id=admin_id,
@@ -77,6 +97,9 @@ async def admin_stop_writes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 	job_dict[WRITE_ALL_DATA_JOB].enabled = False
 
+	user = update.message.from_user
+	logger.info("Admin %s, %s initiate /stop_writes", user.first_name, user.id)
+
 	for admin_id in cf.admin_chat_id:
 		await context.bot.send_message(chat_id=admin_id,
 			text =  "Остановил периодическое сохранение.")
@@ -86,12 +109,19 @@ async def admin_start_writes(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
 	job_dict[WRITE_ALL_DATA_JOB].enabled = True
 
+	user = update.message.from_user
+	logger.info("Admin %s, %s initiate /start_writes", user.first_name, user.id)
+
 	for admin_id in cf.admin_chat_id:
 		await context.bot.send_message(chat_id=admin_id,
 			text =  "Запустил периодическое сохранение.")
 
 # Отправка актуальной версии протоколов.
 async def admin_send_all_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+	user = update.message.from_user
+	logger.info("Admin %s, %s initiate /send_all_data", user.first_name, user.id)
+
 	admin_id = update.message.from_user.id
 	try:
 		for dist_name in cf.dist_personal_dict:
@@ -140,20 +170,6 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """)
 	#bot.register_next_step_handler(msg, process_name_step)
 
-
-async def processing_exceptions(message, context: ContextTypes.DEFAULT_TYPE,  excep: Exception):
-
-	print('Что-то пошло не так( Попробуйте ещё раз! ')
-	print(excep.args)
-	for admin_chat_id in cf.admin_chat_id:
-		await message.forward(chat_id= admin_chat_id, 
-				   #from_chat_id= update.message.chat.id, 
-				   disable_notification = True 
-				   #message_id= update.message.message_id
-				   )
-		await context.bot.send_message(chat_id= admin_chat_id,
-					text = excep.args)
-
 ###########################################
 # Handle '/ask_admin'
 MESSAGE_TO_ADMIN = 0
@@ -164,6 +180,10 @@ async def process_ask_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	return MESSAGE_TO_ADMIN
 
 async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+	user = update.message.from_user
+	logger.info("User %s, %s send something to admin", user.first_name, user.id)
+
 	await update.message.reply_text(
 	   'Ваше сообщение передано Администратору.'
 	)
@@ -185,6 +205,9 @@ async def process_send_to_admin(update: Update, context: ContextTypes.DEFAULT_TY
 async def user_print_dist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	user_id = update.message.from_user.id
 	
+	user = update.message.from_user
+	logger.info("User %s, %s asks about his distances", user.first_name, user.id)
+
 	text = ""
 
 	for dist_name in cf.time_table_dict:
@@ -199,6 +222,79 @@ async def user_print_dist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		)
 
 ###########################################
+#Handle new_dist
+
+async def user_new_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+	user = update.message.from_user
+	text = update.message.text
+	users_data = cf.users.user_dict
+
+	if text not in cf.dist_personal_dict.keys() and text != cf.COMPLETE_CHOOSING:
+		logger.info("Wrong Dist of %s, %s: %s", user.first_name, user.id, text)
+		await update.message.reply_text(
+			"Такой дистанции нет.\n"
+			"На каких дистанциях вы хотели бы участвовать?",
+			reply_markup=ReplyKeyboardMarkup(
+				cf.dist_personal_keyboard, 
+				one_time_keyboard=True, 
+				input_field_placeholder="Выберите дистанцию"
+			),
+		)
+	elif text != cf.COMPLETE_CHOOSING:
+		logger.info("Dist of %s, %s: %s", user.first_name, user.id, text)
+		if pd.isna(users_data.loc[user.id, text]):
+			slot = None
+			try:
+				slot = cf.time_table_dict[text].booking_slot(rand = False,
+															list_of_unavailable = users_data.loc[user.id, cf.users.RES_TIME ])
+				
+				users_data.at[user.id, text] = slot[0]
+				users_data.at[user.id, cf.users.RES_TIME].append(slot[1:3])
+				await update.message.reply_text(
+				time.strftime("Ваше время старта на дистанции: %H:%M.\n", time.localtime(slot[1]))+
+				"Пожалуйста, не опаздывайте;)"
+				)
+
+			except Exception as e:
+				await processing_exceptions(update.message, context, e)
+				await update.message.reply_text(
+				"Что-ьто пошлго не так. Меня умже пытаются вылечить."
+				)
+		else:
+			try:
+				slot_num = int(users_data.at[user.id, text])
+				start_time = cf.time_table_dict[text].table[ slot_num ].start
+				await update.message.reply_text(
+					"Вы уже зарегистрированы на дистанцию "+ text + ".\n" +
+					time.strftime("Старт в %H:%M.\n", time.localtime(start_time))
+				
+				)
+			except Exception as e:
+				await processing_exceptions(update.message, context, e)
+
+	else: 
+		logger.info("User %s, %s finish the registration.", user.first_name, user.id)
+
+		# cf.COMPLETE_CHOOSING означает выход.
+		#
+		# Доделать!!
+		# Тут надо сделать отправку пользоветелю его данных и попросить согласие.
+		#if update.message.text == cf.COMPLETE_CHOOSING:
+		await user_print_dist(update, context)
+
+		return ConversationHandler.END
+
+	await update.message.reply_text(
+		"На каких дистанциях вы хотели бы участвовать?",
+		reply_markup=ReplyKeyboardMarkup(
+			cf.dist_personal_keyboard, 
+			one_time_keyboard=True, 
+			input_field_placeholder="выберите дистанции"
+	),
+	)
+	return DISTANCES
+
+###########################################
 #Handle user_reg
 #
 #user registration steps:
@@ -208,10 +304,13 @@ async def user_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 	"""Starts the conversation and asks the user about their name."""
 
 	user_id = update.message.from_user.id
-	for col in cf.users.user_dict.columns:
+	user = update.message.from_user
+	for col in cf.users.user_dict.columns['Tg_id':cf.users.RES_TIME]:
 		cf.users.user_dict.loc[user_id, col] = None
 	cf.users.user_dict.loc[user_id, 'Tg_id'] = user_id
 	cf.users.user_dict.at[user_id, cf.users.RES_TIME] = []
+
+	logger.info("Start reg %s, %s", user.first_name, user.id)
 
 	await update.message.reply_text(
 	   "Ура, давайте знакомится!\n\n"
@@ -348,10 +447,25 @@ async def user_reg_distances(update: Update, context: ContextTypes.DEFAULT_TYPE)
 	#
 	# Доделать!!
 	# Тут надо сделать отправку пользоветелю его данных и попросить согласие.
-	if update.message.text == cf.COMPLETE_CHOOSING:
+		#if update.message.text == cf.COMPLETE_CHOOSING:
+		facil = ""
+		if users_data.at[user.id, 'Facility'] != None:
+			facil = "Вы имеете отношение факультету: " + users_data.at[user.id, 'Facility'] + "\n"
+
 		await update.message.reply_text(
-			"Спасибо!",
+			"Спасибо!\n\n"
+			"Вас зовут: " + users_data.at[user.id, 'Name'] + "\n"
+			"Вам: " + str(users_data.at[user.id, 'Age']) + " лет\n"
+			"Вы: " + users_data.at[user.id, 'Sex'] + "\n"
+			"Вас зовут: " + users_data.at[user.id, 'University'] + "\n",
+			facil,
 			reply_markup=ReplyKeyboardRemove(),
+			)
+
+		await user_print_dist(update, context)
+
+		await update.message.reply_text(
+			"Если что-то не верно, просто снова вбейте /start и повторите регистрацию!"
 			)
 		return ConversationHandler.END
 
@@ -384,10 +498,9 @@ async def team_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 	"""Starts the conversation and asks the user about team name."""
 
 	user_id = update.message.from_user.id
-	#for col in cf.teams.team_dict.columns:
-	#	cf.teams.team_dict.columns[user_id, col] = None
-	#cf.users.user_dict.loc[user_id, 'Tg_id'] = user_id
-	#cf.users.user_dict.loc[user_id, cf.users.RES_TIME] = []
+
+	user = update.message.from_user
+	logger.info("User %s, %s start reg team", user.first_name, user.id)
 
 	await update.message.reply_text(
 	   "Сейчас зарегистрируем новую команду!\n"
@@ -410,8 +523,11 @@ async def team_reg_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 	try:
 		if pd.notna(cf.users.user_dict.at[user_id, dist]):
 			slot_num = int(cf.users.user_dict.at[user_id, dist])
-
 			slot_start_time = cf.time_table_dict[dist].table[slot_num].start
+
+			user = update.message.from_user
+			logger.info("Team_reg: his also take part in this dist. User %s, %s", user.first_name, user.id)
+
 			await update.message.reply_text(
 				"Вы уже состоите в команде, зарегистрированной, на эту дистанцию." +
 				time.strftime("Стартуете в: %H:%M.\n", time.localtime(slot_start_time)) +
@@ -424,10 +540,13 @@ async def team_reg_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 			)
 			return None
 	except Exception as e:
-		print(e.args)
+		processing_exceptions(update.message, context, e)
 
 	#cf.teams.team_dict.at[(user_id, dist), 'Tg_id_major'] = user_id
 	cf.teams.team_dict.at[(user_id, dist), 'Distance'] = dist
+
+	user = update.message.from_user
+	logger.info("Team_reg: User %s, %s chose dist: %s", user.first_name, user.id, dist)
 
 	await update.message.reply_text(
 	   "Как будет называться команда?\n"
@@ -450,15 +569,18 @@ def find_dist_name(user_id) -> str:
 async def team_reg_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	"""Asks the user about members id."""
 
-	user_id = update.message.from_user.id
+	user = update.message.from_user
+	user_id = user.id
+
 	name = update.message.text
 
 	try:
 		dist = find_dist_name(user_id)
 	
-	
-		print(cf.teams.team_dict.xs(dist, level='Distance'))
 		if name in list(cf.teams.team_dict.xs(dist, level='Distance').loc[:,'Name'] ):
+
+			logger.info("Team_reg: This name is also exsits. User %s, %s, name: %s", user.first_name, user.id, name)
+
 			await update.message.reply_text(
 				"Команда с таким именем уже зарегистрирована, придумайте другое.\n"
 				"Как будет называться команда?\n"
@@ -466,9 +588,12 @@ async def team_reg_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 			return NAME
 
 	except Exception as e:
-		print(e.args)
+		processing_exceptions(update.message, context, e)
 
 	if len(name) > cf.TEAM_NAME_LENTH:
+
+		logger.info("Team_reg: Too long name. User %s, %s, name: %s", user.first_name, user.id, name)
+
 		await update.message.reply_text(
 			"Можно, пожалуйста, покороче?"
 			"Я больше " + str(TEAM_NAME_LENTH) + "букв не запомню("
@@ -476,6 +601,9 @@ async def team_reg_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 		return NAME
 	else:
 		cf.teams.team_dict.loc[(user_id, dist), 'Name'] = name
+
+		logger.info("Team_reg: User %s, %s, chose name: %s", user.first_name, user.id, name)
+
 		await update.message.reply_text(
 			"В команде должно быть " + str(cf.dist_group_team_members_count[dist]) + " участников. \n"
 			"Пожалуйста, напишите id нового участника команды. \n" 
@@ -493,6 +621,9 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 	dist = find_dist_name(major_id)
 
 	if not update.message.text.isdigit():
+
+		logger.info("Team_reg: User %s, %s, print bad id: %s", user.first_name, user.id, update.message.text)
+
 		await update.message.reply_text(
 			"ID телеграмма состоит только из цифр, пожалуйста, напишите правильный id.\n\n"
 			"В команде должно быть " + str(cf.dist_group_team_members_count[dist]) + " участников. \n"
@@ -504,6 +635,9 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 	# Проверка, есть ли такой id в зарегистрированных
 	if new_member_id not in cf.users.user_dict.index or pd.isna(cf.users.user_dict.at[new_member_id, 'Name']):
+
+		logger.info("Team_reg: User %s, %s, print unknown id: %s", user.first_name, user.id, new_member_id)
+
 		await update.message.reply_text(
 			"Я не знаком с таким человеком( Он точно регистрировался у меня?\n"
 			"Если у вашего знакомого нет Телеграмм, то попросите главного судью любой дистанции - они вам помогут.\n\n"
@@ -514,6 +648,9 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 	# Обработка id, если он найден
 	elif pd.notna(cf.users.user_dict.at[new_member_id, dist]):
+
+		logger.info("Team_reg: User %s, %s, print id, that also take part in dist: %s", user.first_name, user.id, new_member_id)
+
 		await update.message.reply_text(
 			"Этот участник уже зарегистрирован в другой команде.\n"
 			"В команде должно быть " + str(cf.dist_group_team_members_count[dist]) + " участников. \n"
@@ -521,6 +658,9 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 			)
 		return MEMBERS_ADD
 	elif new_member_id == major_id or new_member_id in cf.teams.team_dict.at[(major_id, dist), cf.Teams.MEMBERS_ID]:
+
+		logger.info("Team_reg: User %s, %s, print id, that also take part in dist: %s", user.first_name, user.id, new_member_id)
+
 		await update.message.reply_text(
 			"Этот участник уже в вашей команде.\n"
 			"В команде должно быть " + str(cf.dist_group_team_members_count[dist]) + " участников. \n"
@@ -536,11 +676,14 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 		except Exception as e:
-			print(e.args)
+			processing_exceptions(update.message, context, e)
 
 
 		# Записали id всех участников
 		if num_of_remaining_members == 0:
+
+			logger.info("Team_reg: User %s, %s, team reg complete. dist:", user.first_name, user.id, dist)
+
 			await update.message.reply_text(
 			"Команда " + cf.teams.team_dict.at[(major_id, dist), 'Name'] + " зарегистрирована.\n"
 			"Участникам отправлены запросы на подтверждение. Как только я получу все подтверждения, сразу извещу вас."
@@ -556,7 +699,7 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 				members_list = major_name + "  - Зарегистрировал команду\n" + members_list
 
 				for member_id in cf.teams.team_dict.at[(major_id, dist), cf.Teams.MEMBERS_ID]:
-
+					
 					# не знаю, насколько это красиво, но тогда по нажатию на кнопку я получу всю информацию.
 					keyboard = [
 							[
@@ -576,7 +719,7 @@ async def team_reg_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE
 						)
 				return ConversationHandler.END
 			except Exception as e:
-				print(e.args)
+				processing_exceptions(update.message, context, e)
 
 		# Ещё не все участники записаны
 		else:
@@ -606,6 +749,9 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 	try:
 		if mean == "Y":
+
+			logger.info("Team_reg: User %s, %s, confurm to take part in dist: %s, major_id: %s", user.first_name, user.id, dist, major_id)
+
 			cf.teams.team_dict.loc[(major_id, dist),'Member_confurm_num'] += 1
 			await query.edit_message_text(text="Спасибо! Как только я получу все подтверждения, то сразу подберу вам время старта.")
 
@@ -627,6 +773,11 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 				except Exception as ex:
 					processing_exceptions(update.message, context, e)
 
+				logger.info("Team_reg: dist: %s, major_id: %s; slot num: start time: ", 
+									dist, 
+									major_id, 
+									slot[0], 
+									time.strftime("%H:%M.\n", time.localtime(slot[1])))
 
 				# Назначаем слот команде
 				cf.teams.team_dict.loc[(major_id, dist), 'Slot_num'] = slot[0]
@@ -650,7 +801,9 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 		else:
 		#Оповещаем всех об отмене, сбрасываем команду.
-		
+			
+			logger.info("Team_reg: User %s, %s,  NOT confurm to take part in dist: %s, major_id: %s", user.first_name, user.id, dist, major_id)
+
 			for member_id in cf.teams.team_dict.at[(major_id, dist), cf.Teams.MEMBERS_ID] + [major_id]:
 				#member_id = cf.teams.team_dict.loc[(major_id, dist), member_column]
 				await context.bot.send_message( chat_id= member_id,
@@ -665,4 +818,4 @@ async def team_reg_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 			return ConversationHandler.END
 	except Exception as e:
-		print(e.args)
+		processing_exceptions(update.message, context, e)
