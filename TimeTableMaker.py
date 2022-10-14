@@ -26,12 +26,48 @@ def main() -> None:
 	""" Load data."""
 	loader.load()
 
+
+
 	"""Run the interface."""
 	# Create the Application and pass it your interface's token.
 	application = Application.builder().token(cf.api_token).build()
 	
 	# Настройка сохранений
 	job_queue = application.job_queue
+
+
+	job_upload =  job_queue.run_once(
+		user_interface.update_notification, 
+		when = 5,
+		name = 'job_upload'
+		)
+	#user_interface.update_notification(job_queue)
+
+	#user_id = 393132620
+	#dist_name = "Test_dist"
+	#start_time = 3600
+	#job_test_admin =  job_queue.run_repeating(
+	#	user_interface.notificate_user,
+	#	interval=600, 
+	#	first=30,
+	#	#when = 60,
+	#	name = user_interface.NOTIFICATE_USER_JOB + str(user_id) + dist_name,
+	#	chat_id = user_id,
+	#	data = [dist_name, start_time, user_interface.NOTIFICATE_USER_JOB + str(user_id) + "Test_dist"]
+	#	)
+	#user_interface.job_dict[job_test_admin.name] = job_test_admin
+	#dist_name = "Test_dist_Second"
+	#start_time = 3600
+	#job_test_admin =  job_queue.run_repeating(
+	#	user_interface.notificate_user, 
+	#	interval=600, 
+	#	first=10,
+	#	#when = 30,
+	#	name = user_interface.NOTIFICATE_USER_JOB + str(user_id) + dist_name,
+	#	chat_id = user_id,
+	#	data = [dist_name, start_time, user_interface.NOTIFICATE_USER_JOB + str(user_id) + "Test_dist_Second"]
+	#	)
+	#user_interface.job_dict[job_test_admin.name] = job_test_admin
 
 	job_write_all = job_queue.run_repeating(
 		cf.write_all_data, 
@@ -81,7 +117,14 @@ def main() -> None:
 	#/my_dist handler
 	my_dist_handler = CommandHandler("my_dist", user_interface.user_print_dist)
 	#/new_dist Handle
-	new_dist_hendler = CommandHandler("new_dist", user_interface.user_new_dist)
+	new_dist_hendler = ConversationHandler( 
+		entry_points=[CommandHandler("new_dist", user_interface.user_new_dist)],
+		states={
+			user_interface.DISTANCES: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_interface.user_new_dist)],
+		},
+		fallbacks=[CommandHandler("cancel", user_interface.cancel),
+			 MessageHandler(filters.Regex("^(" + cf.COMPLETE_CHOOSING + ")$"), user_interface.user_new_dist)],
+	)
 
 	#/ask_admin handler
 	admin_connect_handler = ConversationHandler(
@@ -127,6 +170,7 @@ def main() -> None:
 	application.add_handlers( handlers = [
 		help_hendler,
 		my_dist_handler,
+		new_dist_hendler,
 		admin_connect_handler, 
 		user_reg_handler, 
 		team_reg_handler, 
