@@ -192,15 +192,19 @@ class Distance:
 		return info_directory + self.name + SHEET_EXTENTION
 
 	# Обновляет таблицу путём перезаписи. То есть старая удаляется, новая сохраняется.
-	# Возвращает список пар (userId, time), со все ми теми userId, которые имеют разные времена в старом и новом расписании. В том числе, удалённые из какого-то
-	def setTable(self, new_table) -> List:
+	# Возвращает три списка пар (userId, time), со всеми теми userId, которые имеют разные времена в старом и новом расписании. В том числе, удалённые из какого-то
+	def setTable(self, new_table: pd.DataFrame) -> Typle:
+
 		old_users = self.table["user_id"]
 		new_users = new_table["user_id"]
-		#
-		#for user in old_users :
-		#	if new_users.get[user, None] == None
-		#
 
+		renewList = ( new_row for row, new_row in zip(self.table.itertuples(), new_table.itertuples())  if row["user_id"] == new_row["user_id"] and row["time"] != new_row["time"])
+		addList = ( new_row for new_row in new_table.itertuples()  if not old_users.isin(new_row["user_id"]).all() )	 
+		deleteList = ( row for row in self.table.itertuples()  if not new_users.isin(row["user_id"]).all() )
+
+		self.table = new_table
+
+		return (renewList,  addList, deleteList)
 
 	def write_TT(self, filename: str = ""):
 
@@ -215,8 +219,11 @@ class Distance:
 		self.table.to_excel(info_directory + ARCHIVE_PATH + write_file_name +  time_str + SHEET_EXTENTION)
 		self.table.to_excel(info_directory + write_file_name + SHEET_EXTENTION)
 
-	def load_TT(self, filename: str = ""):
+	def load_TT(self, filename: str = "") -> Typle:
 		load_file_path = info_directory
+
+		renewTyple = ()
+
 		if filename == "":
 			load_file_path += self.name + SHEET_EXTENTION
 		else:
@@ -224,9 +231,18 @@ class Distance:
 
 		if path.isfile(load_file_path):
 			load_df = pd.read_excel(load_file_path)
-			self.setTable(load_df)
+			
+			if load_df[0, "time"] != ON_A_FIRST_COME :
+				raise Exception("Distance::load_TT: Wrong data in filename=" + load_file_path + ". There is no " + ON_A_FIRST_COME + " in first row.")
+			else: 
+				if not set(Distance.dist_param_list).issubset(self.user_dict.columns):
+					raise Exception("Distance::load_TT: Wrong data in filename=" + load_file_path + ". There is no Distance::dist_param_list.")
+				else:
+					renewTyple = self.setTable(load_df)
 		else:
 			print("There is no " + load_file_path + "\n")
+
+		return renewTyple
 	
 
 class Users:
@@ -246,7 +262,7 @@ class Users:
 		self.user_dict = pd.DataFrame(columns = Users.list_of_params) #Дистанции - список, этапы - словарь = {дистанция:этап}
 		self.user_dict = self.user_dict.set_index('Tg_id')
 
-	def retun_filename(self) -> str:
+	def retunFilename(self) -> str:
 		write_file_name = ""
 		if self.filename == "":
 			write_file_name += "Users"
@@ -254,7 +270,7 @@ class Users:
 			write_file_name += self.filename
 		return info_directory + write_file_name + SHEET_EXTENTION
 
-	def write_users(self):
+	def writeUsers(self):
 		if self.filename == None:
 			self.filename = "Users"
 
@@ -263,7 +279,7 @@ class Users:
 		self.user_dict.to_excel(info_directory + ARCHIVE_PATH + self.filename + time_str + SHEET_EXTENTION)
 		self.user_dict.to_excel(info_directory + self.filename + SHEET_EXTENTION)
 
-	def load_users(self, filename: str = "Users"):
+	def loadUsers(self, filename: str = "Users"):
 		if filename != None:
 			self.filename = filename
 		else:

@@ -329,8 +329,6 @@ async def user_print_dist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ###########################################
 #Handle new_dist
 #
-#user registration steps:
-AGE, GENDER, UNIVERSITY, FACILITY, DISTANCES = range(5)
 
 async def user_new_dist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 	user = update.message.from_user
@@ -434,9 +432,13 @@ async def user_reg_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 		#for data in cf.users.user_dict.loc[user_id, 'Tg_id':cf.Users.RES_TIME]:
 		#	cf.users.user_dict.loc[user_id, col] = None
 		
-		cf.users.user_dict.at[user_id, 'Tg_id'] = user_id
-		cf.users.user_dict.at[user_id, cf.users.RES_TIME] = []
-		cf.users.user_dict.at[user_id, 'Facility'] = None 
+		cf.users.setUserData(user_id, 'Tg_id', user_id)
+		cf.users.setUserData(user_id, cf.users.RES_TIME, [])
+		cf.users.setUserData(user_id, 'Facility', None)
+
+		#cf.users.user_dict.at[user_id, 'Tg_id'] = user_id
+		#cf.users.user_dict.at[user_id, cf.users.RES_TIME] = []
+		#cf.users.user_dict.at[user_id, 'Facility'] = None 
 
 		logger.info("Start reg %s, %s", user.first_name, user.id)
 
